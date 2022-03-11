@@ -1,0 +1,38 @@
+/*
+ * Copyright (C) 2014 Freescale Semiconductor, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "imx6dl-c-sabresd.dts"
+
+&mipi_dsi {
+	status = "okay";
+};
+
+&backlights {
+	pwms = <&pwm3 0 5000000>;
+	status = "okay";
+};
+
+&i2c_ft5326 {
+        status = "okay";
+};
+
+&ft5x06{
+	status = "disabled";
+};
+
+&mxcfb1 {
+	compatible = "fsl,mxc_sdc_fb";
+	disp_dev = "mipi_dsi";
+	mode_str ="TRULY-EK79007-WVGA";
+	interface_pix_fmt = "RGB24";
+	default_bpp = <24>;
+	int_clk = <0>;
+	late_init = <0>;
+	status = "okay";
+};
+

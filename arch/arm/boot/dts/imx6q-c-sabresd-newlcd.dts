@@ -1,0 +1,20 @@
+/*
+ * Copyright (C) 2014 Freescale Semiconductor, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "imx6q-c-sabresd.dts"
+
+&mxcfb1 {
+        compatible = "fsl,mxc_sdc_fb";
+        disp_dev = "lcd";
+        mode_str ="CLAA-WVGA-HD";
+        interface_pix_fmt = "RGB24";
+        default_bpp = <16>;
+        int_clk = <0>;
+        late_init = <0>;
+        status = "okay";
+};

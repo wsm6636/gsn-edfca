@@ -1,0 +1,277 @@
+/*
+ * Copyright (C) 2013-2015 Freescale Semiconductor, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+
+#include "imx6dl.dtsi"
+#include "imx6qdl-sabresd.dtsi"
+
+/ {
+	model = "Freescale i.MX6 DualLite SABRE Smart Device Board";
+	compatible = "fsl,imx6dl-sabresd", "fsl,imx6dl";
+};
+
+&battery {
+	offset-charger = <1485>;
+	offset-discharger = <1464>;
+	offset-usb-charger = <1285>;
+};
+
+&iomuxc {
+        epdc {
+                pinctrl_epdc_0: epdcgrp-0 {
+                        fsl,pins = <
+                                MX6QDL_PAD_EIM_A16__EPDC_DATA00    0x80000000
+                                MX6QDL_PAD_EIM_DA10__EPDC_DATA01   0x80000000
+                                MX6QDL_PAD_EIM_DA12__EPDC_DATA02   0x80000000
+                                MX6QDL_PAD_EIM_DA11__EPDC_DATA03   0x80000000
+                                MX6QDL_PAD_EIM_LBA__EPDC_DATA04    0x80000000
+                                MX6QDL_PAD_EIM_EB2__EPDC_DATA05    0x80000000
+                                MX6QDL_PAD_EIM_CS0__EPDC_DATA06    0x80000000
+                                MX6QDL_PAD_EIM_RW__EPDC_DATA07     0x80000000
+                                MX6QDL_PAD_EIM_A21__EPDC_GDCLK     0x80000000
+                                MX6QDL_PAD_EIM_A22__EPDC_GDSP      0x80000000
+                                MX6QDL_PAD_EIM_A23__EPDC_GDOE      0x80000000
+                                MX6QDL_PAD_EIM_A24__EPDC_GDRL      0x80000000
+                                MX6QDL_PAD_EIM_D31__EPDC_SDCLK_P   0x80000000
+                                MX6QDL_PAD_EIM_D27__EPDC_SDOE      0x80000000
+                                MX6QDL_PAD_EIM_DA1__EPDC_SDLE      0x80000000
+                                MX6QDL_PAD_EIM_EB1__EPDC_SDSHR     0x80000000
+                                MX6QDL_PAD_EIM_DA2__EPDC_BDR0      0x80000000
+                                MX6QDL_PAD_EIM_DA4__EPDC_SDCE0     0x80000000
+                                MX6QDL_PAD_EIM_DA5__EPDC_SDCE1     0x80000000
+                                MX6QDL_PAD_EIM_DA6__EPDC_SDCE2     0x80000000
+                        >;
+                };
+        };
+};
+
+&epdc {
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_epdc_0>;
+        V3P3-supply = <&V3P3_reg>;
+        VCOM-supply = <&VCOM_reg>;
+        DISPLAY-supply = <&DISPLAY_reg>;
+	status = "disabled";
+};
+
+&i2c3 {
+        max17135@48 {
+                compatible = "maxim,max17135";
+                reg = <0x48>;
+                vneg_pwrup = <1>;
+                gvee_pwrup = <1>;
+                vpos_pwrup = <2>;
+                gvdd_pwrup = <1>;
+                gvdd_pwrdn = <1>;
+                vpos_pwrdn = <2>;
+                gvee_pwrdn = <1>;
+                vneg_pwrdn = <1>;
+                SENSOR-supply = <&reg_sensor>;
+                gpio_pmic_pwrgood = <&gpio2 21 0>;
+                gpio_pmic_vcom_ctrl = <&gpio3 17 0>;
+                gpio_pmic_wakeup = <&gpio3 20 0>;
+                gpio_pmic_v3p3 = <&gpio2 20 0>;
+                gpio_pmic_intr = <&gpio2 25 0>;
+		status = "disabled";
+
+                regulators {
+                        DISPLAY_reg: DISPLAY {
+                                regulator-name = "DISPLAY";
+                        };
+
+                        GVDD_reg: GVDD {
+                                /* 20v */
+                                regulator-name = "GVDD";
+                        };
+
+                        GVEE_reg: GVEE {
+                                /* -22v */
+                                regulator-name = "GVEE";
+                        };
+
+                        HVINN_reg: HVINN {
+                                /* -22v */
+                                regulator-name = "HVINN";
+                        };
+
+                        HVINP_reg: HVINP {
+                                /* 20v */
+                                regulator-name = "HVINP";
+                        };
+
+                        VCOM_reg: VCOM {
+                                regulator-name = "VCOM";
+                                /* 2's-compliment, -4325000 */
+                                regulator-min-microvolt = <0xffbe0178>;
+                                /* 2's-compliment, -500000 */
+                                regulator-max-microvolt = <0xfff85ee0>;
+                        };
+
+                        VNEG_reg: VNEG {
+                                /* -15v */
+                                regulator-name = "VNEG";
+                        };
+
+                        VPOS_reg: VPOS {
+                                /* 15v */
+                                regulator-name = "VPOS";
+                        };
+
+                        V3P3_reg: V3P3 {
+                                regulator-name = "V3P3";
+                        };
+                };
+        };
+};
+
+&ldb {
+	lvds-channel@0 {
+		crtc = "ipu1-di0";
+		primary;
+	};
+
+	lvds-channel@1 {
+		crtc = "ipu1-di1";
+	};
+};
+
+&backlights {
+        pwms = <&pwm1 0 5000000>;
+        status = "okay";
+};
+
+&mxcfb1 {
+	compatible = "fsl,mxc_sdc_fb";
+        disp_dev = "lcd";
+        mode_str ="NHD-4.3-ATXI";
+        interface_pix_fmt = "RGB24";
+        default_bpp = <16>;
+        int_clk = <0>;
+        late_init = <0>;
+	status = "okay";
+};
+
+&mxcfb2 {
+	status = "disabled";
+};
+
+&pxp {
+	status = "okay";
+};
+&ft5x06 {
+        status = "okay";
+};
+
+&gt911 {
+        status = "okay";
+};
+
+&gt928_i2c3 {
+        status = "okay";
+};
+
+&ov564x_i2c1_s3 {
+        status = "okay";
+};
+
+&hdmi_video {
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_hdmi_hdcp>;
+        fsl,hdcp;
+        status = "okay";
+};
+
+
+&hdmi {
+        status = "okay";
+};
+
+&can1 {
+        status = "okay";
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_can1>;
+        xceiver-supply  = <&reg_can_xcvr>;
+};
+
+
+&ecspi1 {                   
+	fsl,spi-num-chipselects = <1>;
+        cs-gpios = <&gpio4 9 0>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_ecspi1>;
+        status = "disable";         
+                                    
+        flash: m25p80@0 {          
+                #address-cells = <1>;
+                #size-cells = <1>;
+                compatible = "st,m25p32";
+                spi-max-frequency = <20000000>;
+                reg = <0>;                    
+        };                                   
+};
+
+&ecspi2 {
+        fsl,spi-num-chipselects = <1>;
+        cs-gpios = <&gpio2 27 0>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_ecspi2>;
+        status = "okay";
+
+        spidev: spidev@0 {
+                #address-cells = <1>;
+                #size-cells = <1>;
+                compatible = "rohm,dh2228fv";
+                spi-max-frequency = <16000000>;
+                reg = <0>;
+        };
+};
+
+&touchscreen {
+	status = "okay";
+};
+
+&codec2 {
+        status = "okay";
+};
+
+&mx6sound {
+        compatible = "fsl,imx6q-sabresd-wm8960",
+                   "fsl,imx-audio-wm8960";
+        model = "wm8960-audio";
+        audio-codec = <&codec2>;
+        audio-routing =
+                "Headphone Jack", "HP_L",
+                "Headphone Jack", "HP_R",
+                "Ext Spk", "SPK_RP",
+                "Ext Spk", "SPK_RN",
+                "Ext Spk", "SPK_LP",
+                "Ext Spk", "SPK_LN",
+                "AMIC", "MICB",
+                "LINPUT1", "AMIC",
+                "LINPUT2", "AMIC",
+                "RINPUT1", "AMIC",
+                "RINPUT2", "AMIC",
+                "LINPUT3", "AMIC",
+                "RINPUT3", "AMIC",
+                "DMIC", "MICB",
+                "LINPUT1", "DMIC",
+                "LINPUT2", "DMIC",
+                "RINPUT1", "DMIC",
+                "RINPUT2", "DMIC",
+                "CPU-Playback", "ASRC-Playback",
+                "Playback", "CPU-Playback",
+                "ASRC-Capture", "CPU-Capture",
+                "CPU-Capture", "Capture";
+        hp-det-gpios = <&gpio7 8 0>;
+};
+
+&usdhc2 {
+        wp-gpios = <&gpio2 3 GPIO_ACTIVE_HIGH>;
+};
+

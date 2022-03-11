@@ -1,0 +1,33 @@
+/*
+ * Copyright 2015 Freescale Semiconductor, Inc.
+ *
+ * The code contained herein is licensed under the GNU General Public
+ * License. You may obtain a copy of the GNU General Public License
+ * Version 2 or later at the following locations:
+ *
+ * http://www.opensource.org/licenses/gpl-license.html
+ * http://www.gnu.org/copyleft/gpl.html
+ */
+
+#include "imx6dl-s3-sabresd.dts"
+
+&backlights {
+        status = "disabled";
+};
+
+&hdmi_core {
+	ipu_id = <0>;
+	disp_id = <0>;
+	status = "okay";
+};
+
+&mxcfb1 {
+        compatible = "fsl,mxc_sdc_fb";
+        disp_dev = "hdmi";
+        mode_str ="1920x1080M@60";
+        interface_pix_fmt = "RGB24";
+        default_bpp = <16>;
+        int_clk = <0>;
+        late_init = <0>;
+        status = "okay";
+};

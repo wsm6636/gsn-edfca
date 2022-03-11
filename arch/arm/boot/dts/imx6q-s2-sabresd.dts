@@ -1,0 +1,149 @@
+/*
+ * Copyright 2012=2015 Freescale Semiconductor, Inc.
+ * Copyright 2011 Linaro Ltd.
+ *
+ * The code contained herein is licensed under the GNU General Public
+ * License. You may obtain a copy of the GNU General Public License
+ * Version 2 or later at the following locations:
+ *
+ * http://www.opensource.org/licenses/gpl-license.html
+ * http://www.gnu.org/copyleft/gpl.html
+ */
+
+/dts-v1/;
+
+#include "imx6q.dtsi"
+#include "imx6qdl-sabresd.dtsi"
+
+/ {
+	model = "Freescale i.MX6 Quad SABRE Smart Device Board";
+	compatible = "fsl,imx6q-sabresd", "fsl,imx6q";
+};
+
+&battery {
+	offset-charger = <1900>;
+	offset-discharger = <1694>;
+	offset-usb-charger = <1685>;
+};
+
+&ldb {
+	lvds-channel@0 {
+		crtc = "ipu2-di0";
+		primary;
+	};
+
+	lvds-channel@1 {
+		crtc = "ipu2-di1";
+	};
+};
+
+&backlights {
+	pwms = <&pwm1 0 5000000>;
+	status = "okay";
+};
+
+&mxcfb1 {
+	compatible = "fsl,mxc_sdc_fb";
+        disp_dev = "lcd";
+        mode_str ="CLAA-WVGA";
+        interface_pix_fmt = "RGB24";
+        default_bpp = <16>;
+        int_clk = <0>;
+        late_init = <0>;
+	status = "okay";
+};
+
+&mxcfb2 {
+//	status = "okay";
+};
+
+&mxcfb3 {
+//	status = "okay";
+};
+
+&mxcfb4 {
+//	status = "okay";
+};
+
+&sata {
+	status = "okay";
+};
+
+
+&ecspi1 {                   
+	fsl,spi-num-chipselects = <1>;
+        cs-gpios = <&gpio4 9 0>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_ecspi1>;
+        status = "disable";         
+                                    
+        flash: m25p80@0 {          
+                #address-cells = <1>;
+                #size-cells = <1>;
+                compatible = "st,m25p32";
+                spi-max-frequency = <20000000>;
+                reg = <0>;                    
+        };                                   
+};
+
+&ecspi2 {
+	fsl,spi-num-chipselects = <1>;
+	cs-gpios = <&gpio2 27 0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ecspi2>;
+	status = "okay";
+	
+	spidev: spidev@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <16000000>;
+		reg = <0>;
+	};
+};
+
+&can1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can1>;
+	xceiver-supply  = <&reg_can_xcvr>;
+};
+
+&max11801 {
+	status = "okay";
+};
+
+&ft5x06 {
+	status = "okay";
+};
+
+&gt911 {
+	status = "okay";
+};
+
+&gt928 {
+	status = "okay";
+};
+
+&ov564x {
+	status = "okay";
+};
+
+&hdmi_video {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hdmi_hdcp>;
+	fsl,hdcp;
+	status = "okay";
+};
+
+&hdmi {
+	status = "okay";
+};
+
+&codec1 {
+        status = "okay";
+};
+
+&usdhc2 {
+        wp-gpios = <&gpio2 3 GPIO_ACTIVE_HIGH>;
+};

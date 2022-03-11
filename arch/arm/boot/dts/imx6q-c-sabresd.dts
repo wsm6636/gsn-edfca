@@ -1,0 +1,207 @@
+/*
+ * Copyright 2012=2015 Freescale Semiconductor, Inc.
+ * Copyright 2011 Linaro Ltd.
+ *
+ * The code contained herein is licensed under the GNU General Public
+ * License. You may obtain a copy of the GNU General Public License
+ * Version 2 or later at the following locations:
+ *
+ * http://www.opensource.org/licenses/gpl-license.html
+ * http://www.gnu.org/copyleft/gpl.html
+ */
+
+/dts-v1/;
+
+#include "imx6q.dtsi"
+#include "imx6qdl-sabresd.dtsi"
+
+/ {
+	model = "Freescale i.MX6 Quad SABRE Smart Device Board";
+	compatible = "fsl,imx6q-sabresd", "fsl,imx6q";
+};
+
+&battery {
+	offset-charger = <1900>;
+	offset-discharger = <1694>;
+	offset-usb-charger = <1685>;
+};
+
+&ldb {
+	lvds-channel@0 {
+		crtc = "ipu2-di1";
+		primary;
+	};
+
+	lvds-channel@1 {
+		crtc = "ipu2-di0";
+	};
+};
+
+&backlights {
+	pwms = <&pwm3 0 5000000>;
+	status = "okay";
+};
+
+&mxcfb1 {
+	status = "okay";
+};
+
+&mxcfb2 {
+        status = "okay";
+};
+
+&sata {
+	status = "okay";
+};
+
+
+&ecspi1 {                   
+	fsl,spi-num-chipselects = <1>;
+        cs-gpios = <&gpio4 9 0>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_ecspi1>;
+        status = "disable";         
+                                    
+        flash: m25p80@0 {          
+                #address-cells = <1>;
+                #size-cells = <1>;
+                compatible = "st,m25p32";
+                spi-max-frequency = <20000000>;
+                reg = <0>;                    
+        };                                   
+};
+
+&ecspi2 {
+	fsl,spi-num-chipselects = <1>;
+	cs-gpios = <&gpio2 27 0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ecspi2>;
+	status = "okay";
+	
+	spidev: spidev@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <16000000>;
+		reg = <0>;
+	};
+};
+
+&can1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can1>;
+	xceiver-supply  = <&reg_can_xcvr>;
+};
+
+&max11801 {
+	status = "okay";
+};
+
+&touchscreen {
+        status = "okay";
+};
+
+&mipi_dsi {
+        status = "okay";
+};
+
+&i2c_ft5326 {
+        status = "okay";
+};
+
+&gt928_i2c3 {
+        status = "okay";
+};
+
+&ft5x06_i2c3 {
+	status = "okay";
+};
+
+&gt911_i2c3 {
+	status = "okay";
+};
+
+&ov564x_i2c1_c {
+	status = "okay";
+};
+
+&ov564x_mipi_i2c3 {
+        status = "okay";
+};
+
+&mipi_csi {
+        status = "okay";
+};
+
+&hdmi_video {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hdmi_hdcp>;
+	fsl,hdcp;
+	status = "okay";
+};
+
+&hdmi_i2c3 {
+	status = "okay";
+};
+
+&codec2 {
+	status = "okay";
+};
+
+&mx6sound {
+	compatible = "fsl,imx6q-sabresd-wm8960",
+                   "fsl,imx-audio-wm8960";
+	model = "wm8960-audio";
+	audio-codec = <&codec2>;
+	audio-routing =
+		"Headphone Jack", "HP_L",
+		"Headphone Jack", "HP_R",
+		"Ext Spk", "SPK_RP",
+		"Ext Spk", "SPK_RN",
+		"Ext Spk", "SPK_LP",
+		"Ext Spk", "SPK_LN",
+		"AMIC", "MICB",
+		"LINPUT1", "AMIC",
+		"LINPUT2", "AMIC",
+		"RINPUT1", "AMIC",
+		"RINPUT2", "AMIC",
+		"LINPUT3", "AMIC",
+		"RINPUT3", "AMIC",
+		"DMIC", "MICB",
+		"LINPUT1", "DMIC",
+		"LINPUT2", "DMIC",
+		"RINPUT1", "DMIC",
+		"RINPUT2", "DMIC",
+		"CPU-Playback", "ASRC-Playback",
+		"Playback", "CPU-Playback",
+		"ASRC-Capture", "CPU-Capture",
+		"CPU-Capture", "Capture";
+	hp-det-gpios = <&gpio7 8 0>;
+};
+
+&pinctrl_uart1 {
+	fsl,pins = <
+		MX6QDL_PAD_SD3_DAT7__UART1_TX_DATA      0x1b0b1
+		MX6QDL_PAD_SD3_DAT6__UART1_RX_DATA      0x1b0b1
+	>;
+};
+
+&pinctrl_usdhc3 {
+	fsl,pins = <
+		MX6QDL_PAD_SD3_CMD__SD3_CMD             0x17059
+		MX6QDL_PAD_SD3_CLK__SD3_CLK             0x10059
+		MX6QDL_PAD_SD3_DAT0__SD3_DATA0          0x17059
+		MX6QDL_PAD_SD3_DAT1__SD3_DATA1          0x17059
+		MX6QDL_PAD_SD3_DAT2__SD3_DATA2          0x17059
+		MX6QDL_PAD_SD3_DAT3__SD3_DATA3          0x17059
+		MX6QDL_PAD_SD3_DAT4__SD3_DATA4          0x17059
+		MX6QDL_PAD_SD3_DAT5__SD3_DATA5          0x17059
+//		MX6QDL_PAD_SD3_DAT6__SD3_DATA6          0x17059
+//		MX6QDL_PAD_SD3_DAT7__SD3_DATA7          0x17059
+        >;
+};
+
+&usdhc3 {
+	wp-gpios = <&gpio2 1 GPIO_ACTIVE_HIGH>;
+};

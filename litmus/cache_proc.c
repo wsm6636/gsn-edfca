@@ -175,8 +175,8 @@ uint16_t new_cp_status;
 uint16_t rt_cp_min;
 uint16_t rt_cp_max;
 
-extern void l2x0_flush_all(void);
-
+//extern void l2x0_flush_all(void);
+/*
 static void print_lockdown_registers(int cpu)
 {
 	int i;
@@ -228,7 +228,7 @@ static void test_lockdown(void *ignore)
 	print_lockdown_registers(cpu);
 
 	printk("End lockdown test.\n");
-}
+}*/
 
 void litmus_setup_lockdown(void __iomem *base, u32 id)
 {
@@ -239,7 +239,9 @@ void litmus_setup_lockdown(void __iomem *base, u32 id)
     
 	if (L2X0_CACHE_ID_PART_L310 == (cache_id & L2X0_CACHE_ID_PART_MASK)) {
 		nr_lockregs = 8;
-	} else {
+		printk("litmus_setup_lockdown  in cache proc!\n");
+	}
+	 else {
 		printk("Unknown cache ID!\n");
 		nr_lockregs = 1;
 	}
@@ -267,10 +269,11 @@ int __lock_cache_ways_to_cpu(int cpu, u32 ways_mask)
 		goto out;
 	}
 
-	way_partitions[cpu*2] = ways_mask;
-
-	writel_relaxed(~way_partitions[cpu*2], ld_d_reg(cpu));
+	//way_partitions[cpu*2] = ways_mask;
+	writel_relaxed(~ways_mask, ld_d_reg(cpu));
+	//writel_relaxed(~way_partitions[cpu*2], ld_d_reg(cpu));
 	//writel_relaxed(~way_partitions[cpu*2], ld_i_reg(cpu));
+	printk("__lock_cache_ways_to_cpu\n");
 	
 out:
 	return ret;
@@ -285,12 +288,13 @@ int lock_cache_ways_to_cpu(int cpu, u32 ways_mask)
 	ret = __lock_cache_ways_to_cpu(cpu, ways_mask);
 
 	mutex_unlock(&lockdown_proc);
-
+	printk("ock_cache_ways_to_cpu\n");
 	return ret;
 }
 
 int __unlock_cache_ways_to_cpu(int cpu)
 {
+	printk("__unlock_cache_ways_to_cpu\n");
 	return __lock_cache_ways_to_cpu(cpu, 0x0);
 }
 
@@ -303,10 +307,13 @@ int unlock_cache_ways_to_cpu(int cpu)
 	ret = __unlock_cache_ways_to_cpu(cpu);
 
 	mutex_unlock(&lockdown_proc);
-
+	printk("unlock_cache_ways_to_cpu\n"):
 	return ret;
 }
 
+
+//
+/*
 int __get_used_cache_ways_on_cpu(int cpu, uint16_t *cp_mask)
 {
 	int ret = 0;
@@ -552,16 +559,17 @@ out:
 	mutex_unlock(&lockdown_proc);
 	return ret;
 }
-
+*/
 /* Operate on the Cortex-A9's ACTLR register */
-#define ACTLR_L2_PREFETCH_HINT	(1 << 1)
-#define ACTLR_L1_PREFETCH	(1 << 2)
+//#define ACTLR_L2_PREFETCH_HINT	(1 << 1)
+//#define ACTLR_L1_PREFETCH	(1 << 2)
 
 /*
  * Change the ACTLR.
  * @mode	- If 1 (0), set (clear) the bit given in @mask in the ACTLR.
  * @mask	- A mask in which one bit is set to operate on the ACTLR.
  */
+/*
 static void actlr_change(int mode, int mask)
 {
 	u32 orig_value, new_value, reread_value;
@@ -572,7 +580,7 @@ static void actlr_change(int mode, int mask)
 		return;
 	}
 
-	/* get the original value */
+	// get the original value 
 	asm volatile("mrc p15, 0, %0, c1, c0, 1" : "=r" (orig_value));
 
 	if (0 == mode)
@@ -619,9 +627,9 @@ int litmus_l2_prefetch_hint_proc_handler(struct ctl_table *table, int write,
 
 	return ret;
 }
+*/
 
-
-/* Operate on the PL-310's Prefetch Control Register, L2X0_PREFETCH_CTRL */
+/*// Operate on the PL-310's Prefetch Control Register, L2X0_PREFETCH_CTRL 
 #define L2X0_PREFETCH_DOUBLE_LINEFILL	(1 << 30)
 #define L2X0_PREFETCH_INST_PREFETCH	(1 << 29)
 #define L2X0_PREFETCH_DATA_PREFETCH	(1 << 28)
@@ -860,3 +868,4 @@ out:
 }
 
 module_init(litmus_sysctl_init);
+*/

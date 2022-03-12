@@ -546,13 +546,16 @@ void l2x0_flush_cache_ways(uint16_t ways)
 */
 void l2x0_flush_cache_ways(uint16_t ways)
 {
-
+	unsigned long flags;
 	void __iomem *base = l2x0_base;
 	ways &= l2x0_way_mask;
-	
+	raw_spin_lock_irqsave(&l2x0_lock, flags);
+	pr_info("l2x0_flush_cache_ways in cache-l2x0\n");
 	writel_relaxed(ways, base + L2X0_CLEAN_INV_WAY);
 	l2c_wait_mask(base + L2X0_CLEAN_INV_WAY, ways);
 	writel_relaxed(0, base + sync_reg_offset);
+	l2c_wait_mask(base + L2X0_CACHE_SYNC, 1);
+	raw_spin_unlock_irqrestore(&l2x0_lock, flags);
 
 }
 
@@ -909,6 +912,7 @@ static int __init __l2c_init(const struct l2c_init_data *data,
 	pr_info("%s: CACHE_ID 0x%08x, AUX_CTRL 0x%08x\n",
 		data->type, cache_id, aux);
 	litmus_setup_lockdown(l2x0_base, cache_id);
+	pr_info("litmus_setup_lockdown in arch/arm/mm\n");
 	return 0;
 }
 

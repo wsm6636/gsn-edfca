@@ -29,7 +29,8 @@ obj-y     = sched_plugin.o litmus.o \
 	    sched_gsn_fpcanw.o \
 	    sched_pfp.o \
 	    rt_bw.o \
-	    sched_gsn_edfbw.o
+	    sched_gsn_edfbw.o \
+		sched_gsn_edfca.o
 
 obj-$(CONFIG_PLUGIN_CEDF) += sched_cedf.o
 obj-$(CONFIG_PLUGIN_PFAIR) += sched_pfair.o
@@ -43,5 +44,5 @@ obj-$(CONFIG_SCHED_OVERHEAD_TRACE) += trace.o
 
 obj-y += sched_pres.o
 # cache controller
-obj-y    += cache_proc.o
+obj-y += cache_proc.o
 obj-y += reservations/

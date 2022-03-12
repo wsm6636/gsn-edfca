@@ -178,6 +178,7 @@ struct rt_job {
 	uint16_t	cache_partitions;
 	uint16_t	cp_prev;
 	cache_state_t	cache_state;
+	unsigned int num_using_cache_partitions;
 	uint32_t bw_partitions;
 	unsigned int num_using_bw_partitions;
 	/* Which job is this. This is used to let user space

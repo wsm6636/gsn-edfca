@@ -1,14 +1,14 @@
-#ifndef LITMUS_RT_BANDWIDTH_H
-#define LITMUS_RT_BANDWIDTH_H
+#ifndef LITMUS_RT_EDFCA_H
+#define LITMUS_RT_EDFCA_H
 
 #include <litmus/preempt.h>
 
-#define TRACE_BANDWIDTH_STATE_CHANGE(x, y, task)				\
+#define TRACE_EDFCA_STATE_CHANGE(x, y, task)				\
 	TRACE_TASK(task, "job:%d cp_mask:0x%x %d(%s) -> %d(%s)\n",	\
 		    tsk_rt(task)->job_params.job_no, 			\
-			tsk_rt(task)->job_params.bw_partitions,	\
-			(x), bw_state_name(x),					\
-		    (y), bw_state_name(y))
+			tsk_rt(task)->job_params.cache_partitions,	\
+			(x), ca_state_name(x),					\
+		    (y), ca_state_name(y))
 
 typedef struct  {
 	int 			cpu;

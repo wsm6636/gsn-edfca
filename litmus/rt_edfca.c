@@ -24,7 +24,7 @@ DEFINE_PER_CPU(cpu_edfca_entry_t, cpu_edfca_entries);
  * cpu: the cpu to check
  * cp_mask: the cp_mask the cpu has
  */
-static inline int check_edfca_status_invariant(int cpu, uint32_t bw_mask)
+static inline int check_edfca_status_invariant(int cpu, uint32_t cp_mask)
 {
 	int i;
 	cpu_edfca_entry_t *edfca_entry_tmp, *edfca_entry;
@@ -35,8 +35,8 @@ static inline int check_edfca_status_invariant(int cpu, uint32_t bw_mask)
 		edfca_entry_tmp = &per_cpu(cpu_edfca_entries, i);
 		if (i != cpu && (edfca_entry_tmp->used_cp & cp_mask))
 		{
-			TRACE("[BUG]Lock [P%d], Detect overlap BW: [P%d] used_cp:0x%x, [P%d] used_cp:0x%x, NR_CPUS=%d\n",
-				   cpu, i, edfca_entry_tmp->used_cp, cpu, bw_entry->used_bw, NR_CPUS);
+			TRACE("[BUG]Lock [P%d], Detect overlap  [P%d] used_cp:0x%x, [P%d] used_cp:0x%x, NR_CPUS=%d\n",
+				   cpu, i, edfca_entry_tmp->used_cp, cpu, edfca_entry->used_cp, NR_CPUS);
 			return 0;
 		}
 	}
@@ -90,7 +90,7 @@ void lock_edfca_partitions(int cpu, uint32_t cp_mask, struct task_struct *tsk, r
 /* unlock_edfca_partitions
  * unlock cp_mask for cpu so that other cpus can use cp_mask
  */
-void unlock_cp_partitions(int cpu, uint32_t cp_mask, rt_domain_t *rt)
+void unlock_edfca_partitions(int cpu, uint32_t cp_mask, rt_domain_t *rt)
 {
 	cpu_edfca_entry_t *edfca_entry;
     int ret, i;

@@ -307,7 +307,7 @@ int unlock_cache_ways_to_cpu(int cpu)
 	ret = __unlock_cache_ways_to_cpu(cpu);
 
 	mutex_unlock(&lockdown_proc);
-	printk("unlock_cache_ways_to_cpu\n"):
+	printk("unlock_cache_ways_to_cpu\n");
 	return ret;
 }
 

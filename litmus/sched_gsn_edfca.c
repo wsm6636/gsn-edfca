@@ -60,7 +60,7 @@
  * unlink(T)			- Unlink removes T from all scheduler data
  *                                structures. If it is linked to some CPU it
  *                                will link NULL to that CPU. If it is
- *                                currently queued in the gsnedfbw queue it will
+ *                                currently queued in the gsnedca queue it will
  *                                be removed from the rt_domain. It is safe to
  *                                call unlink(T) if T is not linked. T may not
  *                                be NULL.
@@ -126,7 +126,7 @@ static struct bheap      gsnedfca_cpu_heap;
 
 static rt_domain_t gsnedfca;
 #define gsnedfca_lock (gsnedfca.ready_lock)
-#define gsnedfca_edfca_lock (gsnedfca.edfca_lock)
+#define gsnedfca_edfca_lock (gsnedfca.cache_lock)
 
 static cpu_entry_t* standby_cpus[NR_CPUS];
 
@@ -147,7 +147,7 @@ static int cpu_lower_prio(struct bheap_node *_a, struct bheap_node *_b)
 }
 
 /* update_cpu_position - Move the cpu entry to the correct place to maintain
- *                       order in the cpu queue. Caller must hold gsnedfbw lock.
+ *                       order in the cpu queue. Caller must hold gsnedca lock.
  */
 static void update_cpu_position(cpu_entry_t *entry)
 {
@@ -156,7 +156,7 @@ static void update_cpu_position(cpu_entry_t *entry)
 	bheap_insert(cpu_lower_prio, &gsnedfca_cpu_heap, entry->hn);
 }
 
-/* caller must hold gsnedfbw lock */
+/* caller must hold gsnedfca lock */
 static cpu_entry_t* lowest_prio_cpu(void)
 {
 	struct bheap_node* hn;
@@ -226,7 +226,7 @@ static noinline void link_task_to_cpu(struct task_struct* linked, cpu_entry_t *e
 }
 
 /* unlink - Make sure a task is not linked any longer to an entry
- *          where it was linked before. Must hold gsnedfbw_lock.
+ *          where it was linked before. Must hold gsnedfca_lock.
  */
 static noinline void unlink(struct task_struct* t)
 {
@@ -244,7 +244,7 @@ static noinline void unlink(struct task_struct* t)
 		tsk_rt(t)->job_params.num_using_cache_partitions = 0;
 
 		TRACE("release gsnedfca_edfca_lock\n");
-		raw_spin_unlock(&gsnedfca_edfca_lock);
+		raw_spin_unlock(&gsnedfca.cache_lock);
 
 		t->rt_param.linked_on = NO_CPU;
 		link_task_to_cpu(NULL, entry);
@@ -269,8 +269,8 @@ static void preempt(cpu_entry_t *entry)
 	preempt_if_preemptable(entry->scheduled, entry->cpu);
 }
 
-/* requeue - Put an unlinked task into gsn-edfbw domain.
- *           Caller must hold gsnedfbw_lock.
+/* requeue - Put an unlinked task into gsn-edfca domain.
+ *           Caller must hold gsnedfca_lock.
  */
 static noinline void requeue(struct task_struct* task)
 {
@@ -338,8 +338,6 @@ static int check_for_edfca_preemptions(cpu_entry_t *entry, struct task_struct *t
 	}else
 	{
 		cp_ok = 0;
-
-		//BUG_ON(num_bw_to_use);
 
 		if (num_cp_to_use) {
 			TRACE("[BUG] trying to preempt bandwidth but already has num_cp_to_use=%d\n", num_cp_to_use);
@@ -586,7 +584,7 @@ static void gsnedfca_release_jobs(rt_domain_t* rt, struct bheap* tasks)
 	raw_spin_unlock_irqrestore(&gsnedfca_lock, flags);
 }
 
-/* caller holds gsnedfbw_lock */
+/* caller holds gsnedfca_lock */
 static noinline void curr_job_completion(int forced)
 {
 	struct task_struct *t = current;
@@ -607,7 +605,7 @@ static noinline void curr_job_completion(int forced)
 	/* requeue
 	 * But don't requeue a blocking task. */
 	if (is_current_running())
-		gsnedfbw_job_arrival(t);
+		gsnedfca_job_arrival(t);
 }
 
 
@@ -773,7 +771,7 @@ static struct task_struct* gsnedfca_schedule(struct task_struct * prev)
 
 	/* Check correctness of scheduler
   	 * NOTE: TODO: avoid such check in non-debug mode */
-	//gsnedfbw_check_sched_invariant();
+	//gsnedfca_check_sched_invariant();
 
 	raw_spin_unlock(&gsnedfca_lock);
 
@@ -937,7 +935,7 @@ static long gsnedfca_admit_task(struct task_struct* tsk)
 static struct domain_proc_info gsnedfca_domain_proc_info;
 static long gsnedfca_get_domain_proc_info(struct domain_proc_info **ret)
 {
-	*ret = &gsnedfbw_domain_proc_info;
+	*ret = &gsnedfca_domain_proc_info;
 	return 0;
 }
 
@@ -1055,7 +1053,7 @@ static int __init init_gsn_edfca(void)
 	}
 
 	gsnedfca.used_cache_partitions = 0;
-	memset(gsnedfca.l2_cps, 0, sizeof(gsnedfbw.l2_cps));
+	memset(gsnedfca.l2_cps, 0, sizeof(gsnedfca.l2_cps));
 
 	edf_domain_init(&gsnedfca, NULL, gsnedfca_release_jobs);
 	return register_sched_plugin(&gsn_edfca_plugin);

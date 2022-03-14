@@ -207,9 +207,9 @@ unlock_cache_partitions(int cpu, uint16_t cp_mask, rt_domain_t *rt)
 				  cache_entry->cpu, cache_entry->used_cp, cp_mask);
 		}
 		check_cache_status_invariant(cpu, cp_mask);
-		for (i = 0; i < MAX_CACHE_PARTITIONS; i++)
+		for (int i = 0; i < MAX_CACHE_PARTITIONS; i++)
 		{
-			if (cache_entry->used_bw & (1<<i) & MAX_CACHE_PARTITIONS)
+			if (cache_entry->used_cp & (1<<i) & MAX_CACHE_PARTITIONS)
 			{
 				rt->l2_cps[i] = 0;
 			}

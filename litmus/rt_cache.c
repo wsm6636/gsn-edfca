@@ -193,7 +193,7 @@ unlock_cache_partitions(int cpu, uint16_t cp_mask, rt_domain_t *rt)
 {
 	cpu_cache_entry_t *cache_entry;
 	uint16_t used_cp;
-    int ret;
+    int ret,i;
 
 	if (cpu == NO_CPU)
 	{
@@ -207,7 +207,7 @@ unlock_cache_partitions(int cpu, uint16_t cp_mask, rt_domain_t *rt)
 				  cache_entry->cpu, cache_entry->used_cp, cp_mask);
 		}
 		check_cache_status_invariant(cpu, cp_mask);
-		for (int i = 0; i < MAX_CACHE_PARTITIONS; i++)
+		for (i = 0; i < MAX_CACHE_PARTITIONS; i++)
 		{
 			if (cache_entry->used_cp & (1<<i) & MAX_CACHE_PARTITIONS)
 			{

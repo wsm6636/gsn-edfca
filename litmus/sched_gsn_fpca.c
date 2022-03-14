@@ -1103,12 +1103,12 @@ static void gsnfpca_finish_switch(struct task_struct *prev)
         if (tsk_rt(current)->job_params.cache_state & (CACHE_WILL_USE | CACHE_IN_USE))
         {
 	        raw_spin_lock(&gsnfpca_cache_lock);
-			ret = __lock_cache_ways_to_cpu(entry->cpu, tsk_rt(current)->job_params.cache_partitions);
-			if (ret)
-			{
-				TRACE("[BUG][P%d] PL310 lock cache 0x%d fails\n",
-					entry->cpu, tsk_rt(current)->job_params.cache_partitions);
-			}
+//			ret = __lock_cache_ways_to_cpu(entry->cpu, tsk_rt(current)->job_params.cache_partitions);
+//			if (ret)
+//			{
+//				TRACE("[BUG][P%d] PL310 lock cache 0x%d fails\n",
+//					entry->cpu, tsk_rt(current)->job_params.cache_partitions);
+//			}
             selective_flush_cache_partitions(entry->cpu,
                 tsk_rt(current)->job_params.cache_partitions, current, &gsnfpca);
 	        raw_spin_unlock(&gsnfpca_cache_lock);
@@ -1117,9 +1117,9 @@ static void gsnfpca_finish_switch(struct task_struct *prev)
         if (tsk_rt(current)->job_params.cache_state & (CACHE_WILL_CLEAR | CACHE_CLEARED))
         {
             int ret = 0;
-	        raw_spin_lock(&gsnfpca_cache_lock);
-            ret = __unlock_cache_ways_to_cpu(entry->cpu);
-	        raw_spin_unlock(&gsnfpca_cache_lock);
+//	        raw_spin_lock(&gsnfpca_cache_lock);
+ //           ret = __unlock_cache_ways_to_cpu(entry->cpu);
+//	        raw_spin_unlock(&gsnfpca_cache_lock);
             if (ret)
             {
                 TRACE("[BUG][P%d] PL310 unlock cache 0x%d fails\n",

@@ -252,7 +252,7 @@ void litmus_setup_lockdown(void __iomem *base, u32 id)
 	raw_spin_lock_init(&cache_lock);
 	raw_spin_lock_init(&prefetch_lock);
 	
-	test_lockdown(NULL);
+	//test_lockdown(NULL);
 }
 
 int __lock_cache_ways_to_cpu(int cpu, u32 ways_mask)

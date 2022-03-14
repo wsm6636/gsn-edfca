@@ -102,7 +102,8 @@ selective_flush_cache_partitions(int cpu, uint16_t cp_mask, struct task_struct *
 			}
 		}
 		if (cp_mask_to_flush != 0)
-			l2x0_flush_cache_ways(cp_mask_to_flush);
+			rt->used_cache_partitions |= cp_mask;
+			//l2x0_flush_cache_ways(cp_mask_to_flush);
 	}
 	else
 	{
@@ -206,7 +207,15 @@ unlock_cache_partitions(int cpu, uint16_t cp_mask, rt_domain_t *rt)
 				  cache_entry->cpu, cache_entry->used_cp, cp_mask);
 		}
 		check_cache_status_invariant(cpu, cp_mask);
+		for (i = 0; i < MAX_CACHE_PARTITIONS; i++)
+		{
+			if (cache_entry->used_bw & (1<<i) & MAX_CACHE_PARTITIONS)
+			{
+				rt->l2_cps[i] = 0;
+			}
+		}
 		cache_entry->used_cp = 0;
+		rt->used_cache_partitions &= (CACHE_PARTITIONS_MASK & ~cp_mask);
 	}
     
 	//raw_spin_lock(&rt->cache_lock);

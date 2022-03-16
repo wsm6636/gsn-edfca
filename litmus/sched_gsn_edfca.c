@@ -38,6 +38,7 @@
 #include <linux/module.h>
 
 #include <litmus/rt_edfca.h>
+#include <litmus/cache_proc.h>
 ///#include <litmus/np.h>
 /* Overview of GSN-EDFCA operations.
  *

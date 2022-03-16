@@ -920,8 +920,8 @@ static int __init __l2c_init(const struct l2c_init_data *data,
 		data->type, ways, l2x0_size >> 10);
 	pr_info("%s: CACHE_ID 0x%08x, AUX_CTRL 0x%08x\n",
 		data->type, cache_id, aux);
-	//litmus_setup_lockdown(l2x0_base, cache_id);
-	//pr_info("litmus_setup_lockdown in arch/arm/mm\n");
+	litmus_setup_lockdown(l2x0_base, cache_id);
+	pr_info("litmus_setup_lockdown in arch/arm/mm\n");
 	return 0;
 }
 

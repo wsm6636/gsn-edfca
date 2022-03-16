@@ -80,9 +80,7 @@ void lock_edfca_partitions(int cpu, uint32_t cp_mask, struct task_struct *tsk, r
 			TRACE("[BUG][P%d] has locked bw 0x%x before try to lock cp 0x%x\n",
 				  edfca_entry->cpu, edfca_entry->used_cp, cp_mask);
 		}
-		//ret = check_edfca_status_invariant(cpu, cp_mask);
-		//if (ret)
-	//	{
+
 			edfca_entry->used_cp = cp_mask;
 			for (i = 0; i < MAX_CACHE_PARTITIONS; i++)
 			{
@@ -96,9 +94,14 @@ void lock_edfca_partitions(int cpu, uint32_t cp_mask, struct task_struct *tsk, r
 				}
 			}
 			rt->used_cache_partitions |= cp_mask;
-
-		//	edfca_flush_cache_partitions(cpu,cp_mask_to_flush);
-		//}
+		ret=__lock_cache_ways_to_cpu(cpu,cp_mask_to_flush);
+		if (ret)
+			{
+ 				TRACE("[BUG][P%d] PL310 lock cache 0x%d fails\n",
+ 					cpu, cp_mask_to_flush);
+ 			}
+			edfca_flush_cache_partitions(cpu,cp_mask_to_flush);
+		
 	}
 	return;
 }
@@ -132,6 +135,7 @@ void unlock_edfca_partitions(int cpu, uint32_t cp_mask, rt_domain_t *rt)
 		}
 		edfca_entry->used_cp = 0;
 		rt->used_cache_partitions &= (CACHE_PARTITIONS_MASK & ~cp_mask);
+		__unlock_cache_ways_to_cpu(cpu);
 	}
 
 	return;

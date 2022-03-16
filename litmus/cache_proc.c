@@ -255,7 +255,7 @@ void litmus_setup_lockdown(void __iomem *base, u32 id)
 	//test_lockdown(NULL);
 }
 
-int __lock_cache_ways_to_cpu(int cpu, u32 ways_mask)
+int __lock_cache_ways_to_cpu(int cpu, uint32_t ways_mask)
 {
 	int ret = 0;
 	
@@ -279,7 +279,7 @@ out:
 	return ret;
 }
 
-int lock_cache_ways_to_cpu(int cpu, u32 ways_mask)
+int lock_cache_ways_to_cpu(int cpu, uint32_t ways_mask)
 {
 	int ret = 0;
 
@@ -288,7 +288,7 @@ int lock_cache_ways_to_cpu(int cpu, u32 ways_mask)
 	ret = __lock_cache_ways_to_cpu(cpu, ways_mask);
 
 	mutex_unlock(&lockdown_proc);
-	printk("ock_cache_ways_to_cpu\n");
+	printk("lock_cache_ways_to_cpu\n");
 	return ret;
 }
 

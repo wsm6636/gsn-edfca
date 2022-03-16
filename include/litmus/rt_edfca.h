@@ -2,6 +2,7 @@
 #define LITMUS_RT_EDFCA_H
 
 #include <litmus/preempt.h>
+#include <litmus/cache_proc.h>
 /*
 #define TRACE_EDFCA_STATE_CHANGE(x, y, task)				\
 	TRACE_TASK(task, "job:%d cp_mask:0x%x %d(%s) -> %d(%s)\n",	\

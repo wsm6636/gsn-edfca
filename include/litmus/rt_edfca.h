@@ -2,17 +2,17 @@
 #define LITMUS_RT_EDFCA_H
 
 #include <litmus/preempt.h>
-
+/*
 #define TRACE_EDFCA_STATE_CHANGE(x, y, task)				\
 	TRACE_TASK(task, "job:%d cp_mask:0x%x %d(%s) -> %d(%s)\n",	\
 		    tsk_rt(task)->job_params.job_no, 			\
 			tsk_rt(task)->job_params.cache_partitions,	\
 			(x), ca_state_name(x),					\
 		    (y), ca_state_name(y))
-
+*/
 typedef struct  {
 	int 			cpu;
-	uint32_t 		used_cp; 		/* currently used bw partition */
+	uint32_t 		used_cp; 		/* currently used cp partition */
 } cpu_edfca_entry_t;
 
 /* lock_cache_partitions
@@ -31,5 +31,8 @@ void lock_edfca_partitions(int cpu, uint32_t cp_mask, struct task_struct *tsk, r
 void unlock_edfca_partitions(int cpu, uint32_t cp_mask, rt_domain_t *rt);
 
 int edfca_count_set_bits(uint32_t bitmask);
+
+void
+edfca_flush_cache_partitions(int cpu, uint16_t cp_mask);
 
 #endif

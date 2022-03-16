@@ -241,7 +241,6 @@ static noinline void unlink(struct task_struct* t)
 
 		unlock_edfca_partitions(entry->cpu, tsk_rt(t)->job_params.cache_partitions, &gsnedfca);
 		tsk_rt(t)->job_params.cache_partitions = 0;
-		tsk_rt(t)->job_params.num_using_cache_partitions = 0;
 
 		TRACE("release gsnedfca_edfca_lock\n");
 		raw_spin_unlock(&gsnedfca.cache_lock);

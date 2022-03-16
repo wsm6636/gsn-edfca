@@ -24,6 +24,7 @@ DEFINE_PER_CPU(cpu_edfca_entry_t, cpu_edfca_entries);
  * cpu: the cpu to check
  * cp_mask: the cp_mask the cpu has
  */
+/*
 static inline int check_edfca_status_invariant(int cpu, uint32_t cp_mask)
 {
 	int i;
@@ -43,7 +44,17 @@ static inline int check_edfca_status_invariant(int cpu, uint32_t cp_mask)
 
 	return 1;
 }
-
+*/
+void edfca_flush_cache_partitions(int cpu, uint16_t cp_mask);
+{
+	uint16_t cp_mask_to_flush = 0;
+	if(cp_mask != 0){
+		cp_mask_to_flush=cp_mask;
+		l2x0_flush_cache_ways(cp_mask_to_flush);
+		TRACE("edfca flush cache partitions 0x%x on cpu %d\n", cp_mask,cpu);
+	}else
+			TRACE("[BUG] lock cache partition 0 on cpu %d\n", cpu);
+}
 /* lock_edfca_partitions
  * lock cp_mask for cpu so that only cpu can use cp_mask
  * NOTE:
@@ -70,7 +81,7 @@ void lock_edfca_partitions(int cpu, uint32_t cp_mask, struct task_struct *tsk, r
 			TRACE("[BUG][P%d] has locked bw 0x%x before try to lock cp 0x%x\n",
 				  edfca_entry->cpu, edfca_entry->used_cp, cp_mask);
 		}
-		ret = check_edfca_status_invariant(cpu, cp_mask);
+		//ret = check_edfca_status_invariant(cpu, cp_mask);
 		//if (ret)
 	//	{
 			edfca_entry->used_cp = cp_mask;
@@ -82,6 +93,7 @@ void lock_edfca_partitions(int cpu, uint32_t cp_mask, struct task_struct *tsk, r
 				}
 			}
 			rt->used_cache_partitions |= cp_mask;
+			edfca_flush_cache_partitions(cpu,cp_mask);
 		//}
 	}
 	return;
@@ -106,7 +118,7 @@ void unlock_edfca_partitions(int cpu, uint32_t cp_mask, rt_domain_t *rt)
 			TRACE("[BUG][P%d] has locked cache partitions 0x%x before try to unlock cache partitions 0x%x\n",
 				  edfca_entry->cpu, edfca_entry->used_cp, cp_mask);
 		}
-		ret = check_edfca_status_invariant(cpu, cp_mask);
+	//	ret = check_edfca_status_invariant(cpu, cp_mask);
 		for (i = 0; i < MAX_CACHE_PARTITIONS; i++)
 		{
 			if (edfca_entry->used_cp & (1<<i) & MAX_CACHE_PARTITIONS)

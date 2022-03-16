@@ -1050,6 +1050,11 @@ static int __init init_gsn_edfca(void)
 		edfca_entry->cpu = cpu;
 		edfca_entry->used_cp = 0;
 	}
+		/*if(__lock_cache_ways_to_cpu(cpu, 0x0))
+		{
+			TRACE("P%d lock cache ways 0x0 fails\n", cpu);
+			printk("P%d lock cache ways 0x0 fails\n", cpu);
+		}*/
 	l2x0_flush_cache_ways(0xffff);
 	gsnedfca.used_cache_partitions = 0;
 	memset(gsnedfca.l2_cps, 0, sizeof(gsnedfca.l2_cps));

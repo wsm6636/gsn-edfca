@@ -47,10 +47,8 @@ static inline int check_edfca_status_invariant(int cpu, uint32_t cp_mask)
 */
 void edfca_flush_cache_partitions(int cpu, uint16_t cp_mask)
 {
-	uint16_t cp_mask_to_flush = 0;
 	if(cp_mask != 0){
-		cp_mask_to_flush=cp_mask;
-		l2x0_flush_cache_ways(cp_mask_to_flush);
+		l2x0_flush_cache_ways(cp_mask);
 		TRACE("edfca flush cache partitions 0x%x on cpu %d\n", cp_mask,cpu);
 	}else
 			TRACE("[BUG] lock cache partition 0 on cpu %d\n", cpu);
@@ -69,6 +67,7 @@ void lock_edfca_partitions(int cpu, uint32_t cp_mask, struct task_struct *tsk, r
 {
 	cpu_edfca_entry_t *edfca_entry;
     int ret = 0, i;
+	uint16_t cp_mask_to_flush = 0;
 
 	if (cpu == NO_CPU)
 	{
@@ -89,11 +88,16 @@ void lock_edfca_partitions(int cpu, uint32_t cp_mask, struct task_struct *tsk, r
 			{
 				if (edfca_entry->used_cp & (1<<i) & MAX_CACHE_PARTITIONS)
 				{
-					rt->l2_cps[i] = tsk->pid;
+					if (rt->l2_cps[i] != tsk->pid)
+					{
+						cp_mask_to_flush |= (1 << i);
+						rt->l2_cps[i] = tsk->pid;
+					}
 				}
 			}
 			rt->used_cache_partitions |= cp_mask;
-			edfca_flush_cache_partitions(cpu,cp_mask);
+
+		//	edfca_flush_cache_partitions(cpu,cp_mask_to_flush);
 		//}
 	}
 	return;

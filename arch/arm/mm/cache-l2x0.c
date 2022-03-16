@@ -553,12 +553,12 @@ void l2x0_flush_cache_ways(uint16_t ways)
 	raw_spin_lock_irqsave(&l2x0_lock, flags);
 	pr_info("l2x0_flush_cache_ways in cache-l2x0\n");
 	
-	//l2c_set_debug(base, 0x03);
+	l2c_set_debug(base, 0x03);
 	
 	writel_relaxed(ways, base + L2X0_CLEAN_INV_WAY);
 	l2c_wait_mask(base + L2X0_CLEAN_INV_WAY, ways);
 	
-	//l2c_set_debug(base, 0x00);
+	l2c_set_debug(base, 0x00);
 
 	__l2c210_cache_sync(base);
 	//writel_relaxed(0, base + sync_reg_offset);

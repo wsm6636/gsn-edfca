@@ -25,8 +25,6 @@ obj-y     = sched_plugin.o litmus.o \
 	    sched_gsn_fp.o \
 	    sched_gsn_npfp.o \
 	    sched_gsn_fpca.o \
-	    sched_gsn_npfpca.o \
-	    sched_gsn_fpcanw.o \
 	    sched_pfp.o \
 	    rt_bw.o \
 	    sched_gsn_edfbw.o \
@@ -47,3 +45,6 @@ obj-y += sched_pres.o
 # cache controller
 obj-y += cache_proc.o
 obj-y += reservations/
+
+#obj-y += 	    sched_gsn_npfpca.o \
+	    				sched_gsn_fpcanw.o 

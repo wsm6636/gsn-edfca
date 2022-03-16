@@ -1050,7 +1050,7 @@ static int __init init_gsn_edfca(void)
 		edfca_entry->cpu = cpu;
 		edfca_entry->used_cp = 0;
 	}
-
+	l2x0_flush_cache_ways(0xffff);
 	gsnedfca.used_cache_partitions = 0;
 	memset(gsnedfca.l2_cps, 0, sizeof(gsnedfca.l2_cps));
 

@@ -1108,7 +1108,7 @@ static void gsnfpca_finish_switch(struct task_struct *prev)
 //			{
 //				TRACE("[BUG][P%d] PL310 lock cache 0x%d fails\n",
 //					entry->cpu, tsk_rt(current)->job_params.cache_partitions);
-//			}
+			}
             selective_flush_cache_partitions(entry->cpu,
                 tsk_rt(current)->job_params.cache_partitions, current, &gsnfpca);
 	        raw_spin_unlock(&gsnfpca_cache_lock);
@@ -1767,11 +1767,11 @@ static int __init init_gsn_fpca(void)
 		cache_entry->used_cp = 0;
 		/* init cache controller, not use any cache 
  		 * no need to grab lock now since only init once */
-		if(__lock_cache_ways_to_cpu(cpu, 0x0))
+		/*if(__lock_cache_ways_to_cpu(cpu, 0x0))
 		{
 			TRACE("P%d lock cache ways 0x0 fails\n", cpu);
 			printk("P%d lock cache ways 0x0 fails\n", cpu);
-		}
+		}*/
 	}
 	/* write back all cache */
 	l2x0_flush_cache_ways(0xffff);

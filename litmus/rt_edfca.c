@@ -45,7 +45,7 @@ static inline int check_edfca_status_invariant(int cpu, uint32_t cp_mask)
 	return 1;
 }
 */
-void edfca_flush_cache_partitions(int cpu, uint16_t cp_mask);
+void edfca_flush_cache_partitions(int cpu, uint16_t cp_mask)
 {
 	uint16_t cp_mask_to_flush = 0;
 	if(cp_mask != 0){

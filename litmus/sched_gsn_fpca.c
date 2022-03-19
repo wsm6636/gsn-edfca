@@ -1103,11 +1103,11 @@ static void gsnfpca_finish_switch(struct task_struct *prev)
         if (tsk_rt(current)->job_params.cache_state & (CACHE_WILL_USE | CACHE_IN_USE))
         {
 	        raw_spin_lock(&gsnfpca_cache_lock);
-//			ret = __lock_cache_ways_to_cpu(entry->cpu, tsk_rt(current)->job_params.cache_partitions);
-//			if (ret)
-//			{
-//				TRACE("[BUG][P%d] PL310 lock cache 0x%d fails\n",
-//					entry->cpu, tsk_rt(current)->job_params.cache_partitions);
+			ret = __lock_cache_ways_to_cpu(entry->cpu, tsk_rt(current)->job_params.cache_partitions);
+			if (ret)
+			{
+				TRACE("[BUG][P%d] PL310 lock cache 0x%d fails\n",
+					entry->cpu, tsk_rt(current)->job_params.cache_partitions);
 			}
             selective_flush_cache_partitions(entry->cpu,
                 tsk_rt(current)->job_params.cache_partitions, current, &gsnfpca);
@@ -1117,9 +1117,9 @@ static void gsnfpca_finish_switch(struct task_struct *prev)
         if (tsk_rt(current)->job_params.cache_state & (CACHE_WILL_CLEAR | CACHE_CLEARED))
         {
             int ret = 0;
-//	        raw_spin_lock(&gsnfpca_cache_lock);
- //           ret = __unlock_cache_ways_to_cpu(entry->cpu);
-//	        raw_spin_unlock(&gsnfpca_cache_lock);
+	        raw_spin_lock(&gsnfpca_cache_lock);
+            ret = __unlock_cache_ways_to_cpu(entry->cpu);
+	        raw_spin_unlock(&gsnfpca_cache_lock);
             if (ret)
             {
                 TRACE("[BUG][P%d] PL310 unlock cache 0x%d fails\n",
@@ -1161,10 +1161,10 @@ static void gsnfpca_finish_switch(struct task_struct *prev)
 //				cache_state_name(tsk_rt(prev)->job_params.cache_state));
 //		}
 //	}
-
+/*
 #ifdef WANT_ALL_SCHED_EVENTS
 	TRACE_TASK(prev, "switched away from\n");
-#endif
+#endif*/
 }
 
 
@@ -1767,11 +1767,11 @@ static int __init init_gsn_fpca(void)
 		cache_entry->used_cp = 0;
 		/* init cache controller, not use any cache 
  		 * no need to grab lock now since only init once */
-		/*if(__lock_cache_ways_to_cpu(cpu, 0x0))
+		if(__lock_cache_ways_to_cpu(cpu, 0x0))
 		{
 			TRACE("P%d lock cache ways 0x0 fails\n", cpu);
 			printk("P%d lock cache ways 0x0 fails\n", cpu);
-		}*/
+		}
 	}
 	/* write back all cache */
 	l2x0_flush_cache_ways(0xffff);

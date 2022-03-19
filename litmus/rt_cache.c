@@ -103,7 +103,7 @@ selective_flush_cache_partitions(int cpu, uint16_t cp_mask, struct task_struct *
 		}
 		if (cp_mask_to_flush != 0)
 			rt->used_cache_partitions |= cp_mask;
-			//l2x0_flush_cache_ways(cp_mask_to_flush);
+			l2x0_flush_cache_ways(cp_mask_to_flush);
 	}
 	else
 	{

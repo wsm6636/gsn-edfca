@@ -90,7 +90,7 @@ selective_flush_cache_partitions(int cpu, uint16_t cp_mask, struct task_struct *
 		/* TODO: calculate cache ways to flush */
 		uint16_t cp_mask_to_flush = 0;
 		int i;
-		for (i = 0; i < MAX_CACHE_PARTITIONS; i++)
+	/*	for (i = 0; i < MAX_CACHE_PARTITIONS; i++)
 		{
 			if (cp_mask & (1 << i))
 			{
@@ -102,9 +102,10 @@ selective_flush_cache_partitions(int cpu, uint16_t cp_mask, struct task_struct *
 			}
 		}
 		if (cp_mask_to_flush != 0)
-			rt->used_cache_partitions |= cp_mask;
+			//rt->used_cache_partitions |= cp_mask;
 			l2x0_flush_cache_ways(cp_mask_to_flush);
-	}
+	}*/
+	l2x0_flush_cache_ways(cp_mask);
 	else
 	{
 		TRACE("[BUG] lock cache partition 0 on cpu %d\n", cpu);
@@ -215,7 +216,7 @@ unlock_cache_partitions(int cpu, uint16_t cp_mask, rt_domain_t *rt)
 			}
 		}
 		cache_entry->used_cp = 0;
-		rt->used_cache_partitions &= (CACHE_PARTITIONS_MASK & ~cp_mask);
+		//rt->used_cache_partitions &= (CACHE_PARTITIONS_MASK & ~cp_mask);
 	}
     
 	//raw_spin_lock(&rt->cache_lock);
@@ -320,6 +321,7 @@ set_cache_config(rt_domain_t *rt, struct task_struct *task, cache_state_t s)
  		 * changes from WILL_USE to WILL_CLEAR to CLEARED */
 		tsk_rt(task)->job_params.cp_prev = tsk_rt(task)->job_params.cache_partitions;
 		tsk_rt(task)->job_params.cache_partitions = 0;
+		
 	}
 	//if (s == CACHE_IN_USE)
 	if (s == CACHE_WILL_USE &&

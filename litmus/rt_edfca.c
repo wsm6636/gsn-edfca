@@ -82,15 +82,17 @@ void lock_edfca_partitions(int cpu, uint32_t cp_mask, struct task_struct *tsk, r
 		}
 
 			edfca_entry->used_cp = cp_mask;
+			cp_mask_to_flush = cp_mask;
 			for (i = 0; i < MAX_CACHE_PARTITIONS; i++)
 			{
 				if (edfca_entry->used_cp & (1<<i) & MAX_CACHE_PARTITIONS)
 				{
-					if (rt->l2_cps[i] != tsk->pid)
-					{
-						cp_mask_to_flush |= (1 << i);
+//					if (rt->l2_cps[i] != tsk->pid)
+//					{
+//						cp_mask_to_flush |= (1 << i);
 						rt->l2_cps[i] = tsk->pid;
-					}
+//					}
+				
 				}
 			}
 			rt->used_cache_partitions |= cp_mask;

@@ -96,7 +96,7 @@ void lock_edfca_partitions(int cpu, uint32_t cp_mask, struct task_struct *tsk, r
 				}
 			}
 			rt->used_cache_partitions |= cp_mask;
-		//ret=__lock_cache_ways_to_cpu(cpu,cp_mask_to_flush);
+		ret=__lock_cache_ways_to_cpu(cpu,cp_mask_to_flush);
 		//ret=lock_cache_ways_to_cpu(cpu,cp_mask_to_flush);
 		if (ret)
 			{
@@ -138,7 +138,7 @@ void unlock_edfca_partitions(int cpu, uint32_t cp_mask, rt_domain_t *rt)
 		}
 		edfca_entry->used_cp = 0;
 		rt->used_cache_partitions &= (CACHE_PARTITIONS_MASK & ~cp_mask);
-		//__unlock_cache_ways_to_cpu(cpu);
+		__unlock_cache_ways_to_cpu(cpu);
 		//unlock_cache_ways_to_cpu(cpu);
 	}
 

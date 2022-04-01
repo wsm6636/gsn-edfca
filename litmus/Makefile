@@ -29,7 +29,8 @@ obj-y     = sched_plugin.o litmus.o \
 	    rt_bw.o \
 	    sched_gsn_edfbw.o \
 		sched_gsn_edfca.o \
-		rt_edfca.o
+		rt_edfca.o \
+		edfca.o
 
 obj-$(CONFIG_PLUGIN_CEDF) += sched_cedf.o
 obj-$(CONFIG_PLUGIN_PFAIR) += sched_pfair.o

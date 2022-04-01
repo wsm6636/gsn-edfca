@@ -258,24 +258,24 @@ void litmus_setup_lockdown(void __iomem *base, u32 id)
 int __lock_cache_ways_to_cpu(int cpu, uint32_t ways_mask)
 {
 	int ret = 0;
-	
+	/*
 	if (ways_mask > way_partition_max) {
 		ret = -EINVAL;
 		goto out;
-	}
-
+	}*/
+	/*
 	if (cpu < 0 || cpu > 4) {
 		ret = -EINVAL;
 		goto out;
 	}
-
+*/
 	//way_partitions[cpu*2] = ways_mask;
 	writel_relaxed(~ways_mask, ld_d_reg(cpu));
 	//writel_relaxed(~way_partitions[cpu*2], ld_d_reg(cpu));
 	//writel_relaxed(~way_partitions[cpu*2], ld_i_reg(cpu));
 	printk("__lock_cache_ways_to_cpu\n");
 	
-out:
+//out:
 	return ret;
 }
 

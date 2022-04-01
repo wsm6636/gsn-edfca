@@ -748,6 +748,7 @@ static void __init l2c310_fixup(void __iomem *base, u32 cache_id,
 		fns->flush_all = l2c310_flush_all_erratum;
 		errata[n++] = "727915";
 	}
+	
 
 	if (revision >= L310_CACHE_ID_RTL_R3P0 &&
 	    revision < L310_CACHE_ID_RTL_R3P2) {

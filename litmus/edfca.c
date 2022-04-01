@@ -18,6 +18,7 @@
 #include <litmus/litmus.h>
 #include <litmus/jobs.h>
 #include <litmus/sched_plugin.h>
+#include <litmus/edf_common.h>
 #include <litmus/fp_common.h>
 #include <litmus/sched_trace.h>
 #include <litmus/trace.h>
@@ -121,19 +122,19 @@ typedef struct  {
 	struct task_struct*	scheduled;	/* only RT tasks */
 	struct bheap_node*	hn;
 } cpu_entry_t;
-DEFINE_PER_CPU(cpu_entry_t, gsnfpca_cpu_entries);
+DEFINE_PER_CPU(cpu_entry_t, edfca_cpu_entries);
 
-cpu_entry_t* gsnfpca_cpus[NR_CPUS];
+cpu_entry_t* edfca_cpus[NR_CPUS];
 
 DECLARE_PER_CPU(cpu_cache_entry_t, cpu_cache_entries);
 
 /* the cpus queue themselves according to priority in here */
-static struct bheap_node gsnfpca_heap_node[NR_CPUS];
-static struct bheap      gsnfpca_cpu_heap;
+static struct bheap_node edfca_heap_node[NR_CPUS];
+static struct bheap      edfca_cpu_heap;
 
-rt_domain_t gsnfpca;
-#define gsnfpca_lock (gsnfpca.ready_lock)
-#define gsnfpca_cache_lock (gsnfpca.cache_lock)
+rt_domain_t edfca;
+#define edfca_lock (edfca.ready_lock)
+#define edfca_cache_lock (edfca.cache_lock)
 
 static struct task_struct standby_tasks;
 static cpu_entry_t* standby_cpus[NR_CPUS];
@@ -151,7 +152,7 @@ static int cpu_lower_prio(struct bheap_node *_a, struct bheap_node *_b)
 	/* Note that a and b are inverted: we want the lowest-priority CPU at
 	 * the top of the heap.
 	 */
-	return fp_higher_prio(b->linked, a->linked);
+	return edf_higher_prio(b->linked, a->linked);
 }
 
 /* update_cpu_position - Move the cpu entry to the correct place to maintain
@@ -160,27 +161,27 @@ static int cpu_lower_prio(struct bheap_node *_a, struct bheap_node *_b)
 static void update_cpu_position(cpu_entry_t *entry)
 {
 	if (likely(bheap_node_in_heap(entry->hn)))
-		bheap_delete(cpu_lower_prio, &gsnfpca_cpu_heap, entry->hn);
-	bheap_insert(cpu_lower_prio, &gsnfpca_cpu_heap, entry->hn);
+		bheap_delete(cpu_lower_prio, &edfca_cpu_heap, entry->hn);
+	bheap_insert(cpu_lower_prio, &edfca_cpu_heap, entry->hn);
 }
 
 /* caller must hold gsnfpca lock */
 static cpu_entry_t* lowest_prio_cpu(void)
 {
 	struct bheap_node* hn;
-	hn = bheap_peek(cpu_lower_prio, &gsnfpca_cpu_heap);
+	hn = bheap_peek(cpu_lower_prio, &edfca_cpu_heap);
 	return hn->value;
 }
 
 static void remove_cpu(cpu_entry_t *entry)
 {
 	if (likely(bheap_node_in_heap(entry->hn)))
-		bheap_delete(cpu_lower_prio, &gsnfpca_cpu_heap, entry->hn);
+		bheap_delete(cpu_lower_prio, &edfca_cpu_heap, entry->hn);
 }
 
 static void insert_cpu(cpu_entry_t *entry)
 {
-	bheap_insert(cpu_lower_prio, &gsnfpca_cpu_heap, entry->hn);
+	bheap_insert(cpu_lower_prio, &edfca_cpu_heap, entry->hn);
 }
 
 /* link_task_to_cpu - Update the link of a CPU.
@@ -206,7 +207,7 @@ static noinline void link_task_to_cpu(struct task_struct* linked,
 		/* handle task is already scheduled somewhere! */
 		on_cpu = linked->rt_param.scheduled_on;
 		if (on_cpu != NO_CPU) {
-			sched = &per_cpu(gsnfpca_cpu_entries, on_cpu);
+			sched = &per_cpu(edfca_cpu_entries, on_cpu);
 			/* this should only happen if not linked already */
 			BUG_ON(sched->linked == linked);
 
@@ -248,7 +249,7 @@ static noinline void unlink(struct task_struct* t)
 
 	if (t->rt_param.linked_on != NO_CPU) {
 		/* unlink */
-		entry = &per_cpu(gsnfpca_cpu_entries, t->rt_param.linked_on);
+		entry = &per_cpu(edfca_cpu_entries, t->rt_param.linked_on);
 		t->rt_param.linked_on = NO_CPU;
 		link_task_to_cpu(NULL, entry);
 	} else if (is_queued(t)) {
@@ -259,7 +260,7 @@ static noinline void unlink(struct task_struct* t)
 		 * queue. We must remove it from the list in this
 		 * case.
 		 */
-		remove(&gsnfpca, t);
+		remove(&edfca, t);
 	}
 }
 
@@ -281,21 +282,21 @@ static noinline void requeue(struct task_struct* task)
 	BUG_ON(is_queued(task));
 
 	if (is_early_releasing(task) || is_released(task, litmus_clock()))
-		__add_ready(&gsnfpca, task);
+		__add_ready(&edfca, task);
 	else {
 		/* it has got to wait */
-		add_release(&gsnfpca, task);
+		add_release(&edfca, task);
 	}
 }
 
 #ifdef CONFIG_SCHED_CPU_AFFINITY
-static cpu_entry_t* gsnfpca_get_nearest_available_cpu(cpu_entry_t *start)
+static cpu_entry_t* edfca_get_nearest_available_cpu(cpu_entry_t *start)
 {
 	cpu_entry_t *affinity;
 
-	get_nearest_available_cpu(affinity, start, gsnfpca_cpu_entries,
+	get_nearest_available_cpu(affinity, start, edfca_cpu_entries,
 #ifdef CONFIG_RELEASE_MASTER
-			gsnfpca.release_master
+			edfca.release_master
 #else
 			NO_CPU
 #endif
@@ -306,7 +307,7 @@ static cpu_entry_t* gsnfpca_get_nearest_available_cpu(cpu_entry_t *start)
 #endif
 
 /* global cache lock is grabbed by caller */
-static inline uint16_t get_prev_cps(rt_domain_t *rt, pid_t pid)
+static inline uint16_t get_prev_cps_edf(rt_domain_t *rt, pid_t pid)
 {
 	uint16_t prev_cp_mask = 0;
 	int i;
@@ -327,9 +328,9 @@ static inline uint16_t get_prev_cps(rt_domain_t *rt, pid_t pid)
 
 /* Check if top task in ready_queue can preempt a CPU
  * Remove the top task from ready_queue if preemption occurs  */
-static inline int check_for_preemptions_helper(void)
+static inline int check_for_preemptions_edf(void)
 {
-	rt_domain_t *rt = &gsnfpca;
+	rt_domain_t *rt = &edfca;
 	struct task_struct *task;
 	int num_used_cache_partitions = 0;
 	int cpu_ok = 0;
@@ -348,7 +349,7 @@ static inline int check_for_preemptions_helper(void)
 	INIT_LIST_HEAD(&tsk_rt(&preempted_tasks)->standby_list);
 
 	/*TODO: Assume no priority inversion first! */
-	task = __peek_ready(&gsnfpca);
+	task = __peek_ready(&edfca);
 
 	if (!task) {
 		TRACE_TASK(task, "No ready RT tasks\n");
@@ -360,14 +361,14 @@ static inline int check_for_preemptions_helper(void)
 	/* Check if all cores are busy with high tasks 
 	 * No need to check any other tasks if no idle core */
 	entry = lowest_prio_cpu();
-	if (entry->linked && !fp_higher_prio(task, entry->linked))
+	if (entry->linked && !edf_higher_prio(task, entry->linked))
 	{
 		has_preemption = SCHED_NO_LOW_PRIO_CORE;
 		goto out;
 	}
 
 	/* Check if local cpu is idle first */
-	cpu_to_preempt = this_cpu_ptr(&gsnfpca_cpu_entries);
+	cpu_to_preempt = this_cpu_ptr(&edfca_cpu_entries);
     BUG_ON(!cpu_to_preempt);
 
 	if (task && !cpu_to_preempt->linked) {
@@ -376,7 +377,7 @@ static inline int check_for_preemptions_helper(void)
 		TRACE_TASK(task, "linking to local CPU %d to avoid IPI if cache is enough\n", cpu_to_preempt->cpu);
 	}
 	/* Get task cache partitions not polluted/flushed by others */
-	prev_cp_mask = get_prev_cps(rt, task->pid);
+	prev_cp_mask = get_prev_cps_edf(rt, task->pid);
 
 	/* Check if cache and cpu is available */
 	num_used_cache_partitions =
@@ -423,7 +424,7 @@ static inline int check_for_preemptions_helper(void)
 		entry = lowest_prio_cpu();
 		cur = entry->linked;
 
-		if (!cur || !is_realtime(cur) || fp_higher_prio(task, cur))
+		if (!cur || !is_realtime(cur) || edf_higher_prio(task, cur))
 		{
 			if (!cpu_ok)
 			{
@@ -491,7 +492,7 @@ static inline int check_for_preemptions_helper(void)
 				TRACE_TASK(cur, "[BUG] was linked but is not in CACHE_WILL_USE or CACHE_IN_USE\n");
 				continue;
 			}
-			if (!fp_higher_prio(task, cur))
+			if (!edf_higher_prio(task, cur))
 				break;
 			if (!cpu_ok)
 			{
@@ -586,14 +587,14 @@ static inline int check_for_preemptions_helper(void)
 	BUG_ON(!cpu_to_preempt);
 	/* Must take_ready before we requeue any task */
 	has_preemption = SCHED_HAS_PREEMPTION;
-	task = __take_ready(&gsnfpca);
+	task = __take_ready(&edfca);
 	BUG_ON(!task);
 	if (!only_take_idle_cache)
 	{
 		list_for_each_safe(iter, tmp, &tsk_rt(&preempted_tasks)->standby_list) {
 			struct rt_param *rt_cur = list_entry(iter, struct rt_param, standby_list);
 			struct task_struct *tsk_cur = list_entry(rt_cur, struct task_struct, rt_param); /* correct */
-			cpu_entry_t *cpu_entry = gsnfpca_cpus[rt_cur->linked_on];
+			cpu_entry_t *cpu_entry = edfca_cpus[rt_cur->linked_on];
 			list_del_init(&rt_cur->standby_list);
 			if (cpu_entry->cpu != cpu_to_preempt->cpu)
 			{
@@ -660,7 +661,7 @@ static void check_for_preemptions(void)
 	INIT_LIST_HEAD(&tsk_rt(&blocked_hi_tasks)->standby_list);
 
 	do {
-		has_preemption = check_for_preemptions_helper();
+		has_preemption = check_for_preemptions_edf();
 		if (has_preemption == SCHED_HAS_PREEMPTION)
 			num_preemption++;
 		if (has_preemption == SCHED_NO_LOW_PRIO_CORE)
@@ -670,7 +671,7 @@ static void check_for_preemptions(void)
 			/* Highest priority task in ready queue cannot preempt
  			 * Save it to blocked_hi_tasks and try the next one in 
  			 * ready_queue */
-			cur = __take_ready(&gsnfpca);
+			cur = __take_ready(&edfca);
 			if (!cur)
 				break;
 			if (!list_empty(&tsk_rt(cur)->standby_list))
@@ -690,7 +691,7 @@ static void check_for_preemptions(void)
 			struct rt_param *rt_cur = list_entry(iter, struct rt_param, standby_list);
 			struct task_struct *tsk_cur = list_entry(rt_cur, struct task_struct, rt_param); /* correct */
 			list_del_init(&rt_cur->standby_list);
-			__add_ready(&gsnfpca, tsk_cur);
+			__add_ready(&edfca, tsk_cur);
 	}
 
 	return;
@@ -701,34 +702,34 @@ static void check_for_preemptions(void)
  * Job arrival occurs only when previous job completion occurs,
  * which has set cache state to CACHE_WILL_CLEAR already
  */
-static noinline void gsnfpca_job_arrival(struct task_struct* task)
+static noinline void edfca_job_arrival(struct task_struct* task)
 {
 	BUG_ON(!task);
 
-	TRACE_TASK(task, "gsnfpca_job_arrival %s/%d/%d\n",
+	TRACE_TASK(task, "edfca_job_arrival %s/%d/%d\n",
 			   task->comm, task->pid,
 			   tsk_rt(task)->job_params.job_no);
 	requeue(task);
 	check_for_preemptions();
 }
 
-static void gsnfpca_release_jobs(rt_domain_t* rt, struct bheap* tasks)
+static void edfca_release_jobs(rt_domain_t* rt, struct bheap* tasks)
 {
 	unsigned long flags;
 
-	TRACE("gsnfpca_release_jobs\n");
-	raw_spin_lock_irqsave(&gsnfpca_lock, flags);
+	TRACE("edfca_release_jobs\n");
+	raw_spin_lock_irqsave(&edfca_lock, flags);
 
 	__merge_ready(rt, tasks);
 	check_for_preemptions();
 
-	raw_spin_unlock_irqrestore(&gsnfpca_lock, flags);
+	raw_spin_unlock_irqrestore(&edfca_lock, flags);
 }
 
 /* caller holds gsnfpca_lock */
 static noinline void job_completion(struct task_struct *t, int forced)
 {
-	rt_domain_t *rt = &gsnfpca;
+	rt_domain_t *rt = &edfca;
 	BUG_ON(!t);
 
 	sched_trace_task_completion(t, forced);
@@ -748,10 +749,10 @@ static noinline void job_completion(struct task_struct *t, int forced)
 	/* requeue
 	 * But don't requeue a blocking task. */
 	if (is_current_running())
-		gsnfpca_job_arrival(t);
+		edfca_job_arrival(t);
 }
 
-void gsnfpca_dump_cpus(void)
+void edfca_dump_cpus(void)
 {
 	int i;
 	cpu_entry_t *entry = NULL;
@@ -759,7 +760,7 @@ void gsnfpca_dump_cpus(void)
 
 	for (i = 0; i < NR_CPUS; i++)
 	{
-		entry = gsnfpca_cpus[i];
+		entry = edfca_cpus[i];
 		ltask = entry->linked;
 		stask = entry->scheduled;
 		if (ltask)
@@ -788,28 +789,28 @@ void gsnfpca_dump_cpus(void)
  * the current linked task on the CPU should NOT be preemptable
  * by the top task in ready_queue
  */
-void gsnfpca_check_sched_invariant(void)
+void edfca_check_sched_invariant(void)
 {
 	int i;
 	cpu_entry_t *entry = NULL;
 	struct task_struct *task = NULL;
 	struct task_struct *qtask = NULL;
 	struct task_struct *preempted_task = NULL;
-	rt_domain_t *rt = &gsnfpca;
+	rt_domain_t *rt = &edfca;
 	int num_used_cp = 0;
 	int num_avail_cp = 0;
 	int cpu_ok = 0;
 	int preempted_cpu = -1;
 
-	qtask = __peek_ready(&gsnfpca);
+	qtask = __peek_ready(&edfca);
 	/* No ready RT task */
 	if (!qtask)
 		return;
 
 	/* Top ready task has higher priority? */
-	entry = this_cpu_ptr(&gsnfpca_cpu_entries);
+	entry = this_cpu_ptr(&edfca_cpu_entries);
 	task = entry->linked;
-	if (fp_higher_prio(qtask, task))
+	if (edf_higher_prio(qtask, task))
 	{
 		cpu_ok = 1;
 		preempted_task = task;
@@ -821,14 +822,14 @@ void gsnfpca_check_sched_invariant(void)
 	num_avail_cp = MAX_NUM_CACHE_PARTITIONS - num_used_cp;
 	for (i = 0; i < NR_CPUS; i++)
 	{
-		entry = gsnfpca_cpus[i];
+		entry = edfca_cpus[i];
 		/* entry may have picked a task but not schedule yet */
 		task = entry->linked;
 		if (!task || !is_realtime(task))
 		{
 			continue;
 		}
-		if (fp_higher_prio(qtask, task))
+		if (edf_higher_prio(qtask, task))
 		{
 			if (tsk_rt(task)->job_params.cache_state & (CACHE_WILL_USE | CACHE_IN_USE))
 				num_avail_cp += tsk_rt(task)->task_params.num_cache_partitions;
@@ -852,7 +853,7 @@ void gsnfpca_check_sched_invariant(void)
 			TRACE_TASK(qtask, "[ERROR] can preempt NULL on P%d rt.cp=0x%x qtask.num_cp=%d\n",
 				   preempted_cpu,
 				   rt->used_cache_partitions, tsk_rt(qtask)->task_params.num_cache_partitions);
-		gsnfpca_dump_cpus();
+		edfca_dump_cpus();
 	}
 
 	return;
@@ -879,10 +880,10 @@ void gsnfpca_check_sched_invariant(void)
  *
  * Any of these can occur together.
  */
-static struct task_struct* gsnfpca_schedule(struct task_struct * prev)
+static struct task_struct* edfca_schedule(struct task_struct * prev)
 {
-	rt_domain_t *rt = &gsnfpca;
-	cpu_entry_t* entry = this_cpu_ptr(&gsnfpca_cpu_entries);
+	rt_domain_t *rt = &edfca;
+	cpu_entry_t* entry = this_cpu_ptr(&edfca_cpu_entries);
 	int out_of_time, sleep, preempt, np, exists, blocks, finish, prev_cache_state;
 	struct task_struct* next = NULL;
 	cache_state_t cache_state_prev;
@@ -891,13 +892,13 @@ static struct task_struct* gsnfpca_schedule(struct task_struct * prev)
 	/* Bail out early if we are the release master.
 	 * The release master never schedules any real-time tasks.
 	 */
-	if (unlikely(gsnfpca.release_master == entry->cpu)) {
+	if (unlikely(edfca.release_master == entry->cpu)) {
 		sched_state_task_picked();
 		return NULL;
 	}
 #endif
 
-	raw_spin_lock(&gsnfpca_lock);
+	raw_spin_lock(&edfca_lock);
 
 	/* sanity checking */
 	BUG_ON(entry->scheduled && entry->scheduled != prev);
@@ -923,7 +924,7 @@ static struct task_struct* gsnfpca_schedule(struct task_struct * prev)
 	}
 
 #ifdef WANT_ALL_SCHED_EVENTS
-	TRACE_TASK(prev, "invoked gsnfpca_schedule.\n");
+	TRACE_TASK(prev, "invoked edfca_schedule.\n");
 #endif
 
 	if (exists)
@@ -1068,10 +1069,10 @@ static struct task_struct* gsnfpca_schedule(struct task_struct * prev)
   	 * NOTE: TODO: avoid such check in non-debug mode */
 	//gsnfpca_check_sched_invariant();
 
-	raw_spin_unlock(&gsnfpca_lock);
+	raw_spin_unlock(&edfca_lock);
 
 #ifdef WANT_ALL_SCHED_EVENTS
-	TRACE_TASK(next, "gsnfpca_lock released\n");
+	TRACE_TASK(next, "edfca_lock released\n");
 
 	if (next)
 		TRACE_TASK(next, "scheduled at %llu\n", litmus_clock());
@@ -1089,9 +1090,9 @@ static struct task_struct* gsnfpca_schedule(struct task_struct * prev)
  *  This function is in the context switch path
  *  Its execution is counted as context switch overhead
  */
-static void gsnfpca_finish_switch(struct task_struct *prev)
+static void edfca_finish_switch(struct task_struct *prev)
 {
-	cpu_entry_t* 	entry = this_cpu_ptr(&gsnfpca_cpu_entries);
+	cpu_entry_t* 	entry = this_cpu_ptr(&edfca_cpu_entries);
 //	int16_t cp_mask;
 //	int cpu;
 	int ret = 0;
@@ -1102,27 +1103,24 @@ static void gsnfpca_finish_switch(struct task_struct *prev)
     {
         if (tsk_rt(current)->job_params.cache_state & (CACHE_WILL_USE | CACHE_IN_USE))
         {
-	        raw_spin_lock(&gsnfpca_cache_lock);
+	        raw_spin_lock(&edfca_cache_lock);
 		//	ret = __lock_cache_ways_to_cpu(entry->cpu, tsk_rt(current)->job_params.cache_partitions);
-			//ret = lock_cache_ways_to_cpu(entry->cpu, tsk_rt(current)->job_params.cache_partitions);
-			
 			if (ret)
 			{
 				TRACE("[BUG][P%d] PL310 lock cache 0x%d fails\n",
 					entry->cpu, tsk_rt(current)->job_params.cache_partitions);
 			}
             selective_flush_cache_partitions(entry->cpu,
-                tsk_rt(current)->job_params.cache_partitions, current, &gsnfpca);
-	        raw_spin_unlock(&gsnfpca_cache_lock);
+                tsk_rt(current)->job_params.cache_partitions, current, &edfca);
+	        raw_spin_unlock(&edfca_cache_lock);
         }
 		
         if (tsk_rt(current)->job_params.cache_state & (CACHE_WILL_CLEAR | CACHE_CLEARED))
         {
             int ret = 0;
-	     /*   raw_spin_lock(&gsnfpca_cache_lock);
+	   /*     raw_spin_lock(&edfca_cache_lock);
             ret = __unlock_cache_ways_to_cpu(entry->cpu);
-			//ret = unlock_cache_ways_to_cpu(entry->cpu);
-	        raw_spin_unlock(&gsnfpca_cache_lock);*/
+	        raw_spin_unlock(&edfca_cache_lock);*/
             if (ret)
             {
                 TRACE("[BUG][P%d] PL310 unlock cache 0x%d fails\n",
@@ -1173,30 +1171,30 @@ static void gsnfpca_finish_switch(struct task_struct *prev)
 
 /*	Prepare a task for running in RT mode
  */
-static void gsnfpca_task_new(struct task_struct * t, int on_rq, int is_scheduled)
+static void edfca_task_new(struct task_struct * t, int on_rq, int is_scheduled)
 {
 	unsigned long 		flags;
 	cpu_entry_t* 		entry;
 
-	TRACE("gsn fpca: task new %d\n", t->pid);
+	TRACE("edfca: task new %d\n", t->pid);
 
-	raw_spin_lock_irqsave(&gsnfpca_lock, flags);
+	raw_spin_lock_irqsave(&edfca_lock, flags);
 
 	/* Init job param before check_for_preemption */
 	TRACE_TASK(t, "cp_mask=0x%x before we set it to 0\n",
 			   tsk_rt(t)->job_params.cache_partitions);
 	tsk_rt(t)->job_params.cache_partitions = 0;
-	set_cache_config(&gsnfpca, t, CACHE_INIT);
+	set_cache_config(&edfca, t, CACHE_INIT);
 
 	/* setup job params */
 	release_at(t, litmus_clock());
 
 	if (is_scheduled) {
-		entry = &per_cpu(gsnfpca_cpu_entries, task_cpu(t));
+		entry = &per_cpu(edfca_cpu_entries, task_cpu(t));
 		BUG_ON(entry->scheduled);
 
 #ifdef CONFIG_RELEASE_MASTER
-		if (entry->cpu != gsnfpca.release_master) {
+		if (entry->cpu != edfca.release_master) {
 #endif
 			entry->scheduled = t;
 			tsk_rt(t)->scheduled_on = task_cpu(t);
@@ -1213,11 +1211,11 @@ static void gsnfpca_task_new(struct task_struct * t, int on_rq, int is_scheduled
 	t->rt_param.linked_on          = NO_CPU;
 
 	if (on_rq || is_scheduled)
-		gsnfpca_job_arrival(t);
-	raw_spin_unlock_irqrestore(&gsnfpca_lock, flags);
+		edfca_job_arrival(t);
+	raw_spin_unlock_irqrestore(&edfca_lock, flags);
 }
 
-static void gsnfpca_task_wake_up(struct task_struct *task)
+static void edfca_task_wake_up(struct task_struct *task)
 {
 	unsigned long flags;
 	lt_t now;
@@ -1225,46 +1223,46 @@ static void gsnfpca_task_wake_up(struct task_struct *task)
 	TRACE_TASK(task, "wake_up at %llu, cp_mask=0x%x\n",
 			   litmus_clock(), tsk_rt(task)->job_params.cache_partitions);
 
-	raw_spin_lock_irqsave(&gsnfpca_lock, flags);
+	raw_spin_lock_irqsave(&edfca_lock, flags);
 	now = litmus_clock();
 	if (is_sporadic(task) && is_tardy(task, now)) {
 		/* new sporadic release */
 		release_at(task, now);
 		sched_trace_task_release(task);
 	}
-	gsnfpca_job_arrival(task);
-	raw_spin_unlock_irqrestore(&gsnfpca_lock, flags);
+	edfca_job_arrival(task);
+	raw_spin_unlock_irqrestore(&edfca_lock, flags);
 }
 
-static void gsnfpca_task_block(struct task_struct *t)
+static void edfca_task_block(struct task_struct *t)
 {
-	rt_domain_t *rt = &gsnfpca;
+	rt_domain_t *rt = &edfca;
 	unsigned long flags;
 
 	TRACE_TASK(t, "block at %llu, cp_mask=0x%x\n",
 			   litmus_clock(), tsk_rt(t)->job_params.cache_partitions);
 
 	/* unlink if necessary, Always clear cache before unlink */
-	raw_spin_lock_irqsave(&gsnfpca_lock, flags);
+	raw_spin_lock_irqsave(&edfca_lock, flags);
 	set_cache_config(rt, t, CACHE_WILL_CLEAR);
 	unlink(t);
 	TRACE_TASK(t, "blocked, rt.used_cp_mask=0x%x should not include job.cp_mask=0x%x\n",
 			   rt->used_cache_partitions, tsk_rt(t)->job_params.cache_partitions);
 	/* schedule point when task is blocked */
 	check_for_preemptions();
-	raw_spin_unlock_irqrestore(&gsnfpca_lock, flags);
+	raw_spin_unlock_irqrestore(&edfca_lock, flags);
 
 	BUG_ON(!is_realtime(t));
 }
 
 
-static void gsnfpca_task_exit(struct task_struct * t)
+static void edfca_task_exit(struct task_struct * t)
 {
-	rt_domain_t *rt = &gsnfpca;
+	rt_domain_t *rt = &edfca;
 	unsigned long flags;
 
 	/* unlink if necessary */
-	raw_spin_lock_irqsave(&gsnfpca_lock, flags);
+	raw_spin_lock_irqsave(&edfca_lock, flags);
 	/* Unlock cache before unlink task since
  	 * we need to know which CPU to unlock for */
 	set_cache_config(rt, t, CACHE_WILL_CLEAR);
@@ -1272,14 +1270,14 @@ static void gsnfpca_task_exit(struct task_struct * t)
 	unlink(t);
 	/* Do simple schedule here instead of gsnfpca_schedule() */
 	if (tsk_rt(t)->scheduled_on != NO_CPU) {
-		gsnfpca_cpus[tsk_rt(t)->scheduled_on]->scheduled = NULL;
+		edfca_cpus[tsk_rt(t)->scheduled_on]->scheduled = NULL;
 		tsk_rt(t)->scheduled_on = NO_CPU;
 	}
 	TRACE_TASK(t, "exit, used_cp_mask=0x%x cleared by job.cp_mask=0x%x\n",
 			   rt->used_cache_partitions, tsk_rt(t)->job_params.cache_partitions);
 	/* schedule point when task is blocked */
 	check_for_preemptions();
-	raw_spin_unlock_irqrestore(&gsnfpca_lock, flags);
+	raw_spin_unlock_irqrestore(&edfca_lock, flags);
 
 	BUG_ON(!is_realtime(t));
         TRACE_TASK(t, "RIP\n");
@@ -1289,7 +1287,7 @@ static void gsnfpca_task_exit(struct task_struct * t)
  *	Deactivate current task until the beginning of the next period.
  *	cache_state is set to CACHE_WILL_CLEAR in caller
  */
-long gsnfpca_complete_job(void)
+long edfca_complete_job(void)
 {
 	TRACE_TASK(current, "%s/%d/%d completed\n",
 			   current->comm, current->pid, tsk_rt(current)->job_params.job_no);
@@ -1302,7 +1300,7 @@ long gsnfpca_complete_job(void)
 	return 0;
 }
 
-static long gsnfpca_admit_task(struct task_struct* tsk)
+static long edfca_admit_task(struct task_struct* tsk)
 {
 	if (litmus_is_valid_fixed_prio(get_priority(tsk)))
 	{
@@ -1329,7 +1327,7 @@ static void set_priority_inheritance(struct task_struct* t, struct task_struct* 
 	int linked_on;
 	int check_preempt = 0;
 
-	raw_spin_lock(&gsnfpca_lock);
+	raw_spin_lock(&edfca_lock);
 
 	TRACE_TASK(t, "inherits priority from %s/%d\n", prio_inh->comm, prio_inh->pid);
 	tsk_rt(t)->inh_task = prio_inh;
@@ -1344,13 +1342,13 @@ static void set_priority_inheritance(struct task_struct* t, struct task_struct* 
 		 * We can't use heap_decrease() here since
 		 * the cpu_heap is ordered in reverse direction, so
 		 * it is actually an increase. */
-		bheap_delete(cpu_lower_prio, &gsnfpca_cpu_heap,
-			    gsnfpca_cpus[linked_on]->hn);
-		bheap_insert(cpu_lower_prio, &gsnfpca_cpu_heap,
-			    gsnfpca_cpus[linked_on]->hn);
+		bheap_delete(cpu_lower_prio, &edfca_cpu_heap,
+			    edfca_cpus[linked_on]->hn);
+		bheap_insert(cpu_lower_prio, &edfca_cpu_heap,
+			    edfca_cpus[linked_on]->hn);
 	} else {
 		/* holder may be queued: first stop queue changes */
-		raw_spin_lock(&gsnfpca.release_lock);
+		raw_spin_lock(&edfca.release_lock);
 		if (is_queued(t)) {
 			TRACE_TASK(t, "%s: is queued\n",
 				   __FUNCTION__);
@@ -1358,7 +1356,7 @@ static void set_priority_inheritance(struct task_struct* t, struct task_struct* 
 			 * heap. Note that this could be a release heap if we
 			 * budget enforcement is used and this job overran. */
 			check_preempt =
-				!bheap_decrease(fp_ready_order,
+				!bheap_decrease(edf_ready_order,
 					       tsk_rt(t)->heap_node);
 		} else {
 			/* Nothing to do: if it is not queued and not linked
@@ -1369,7 +1367,7 @@ static void set_priority_inheritance(struct task_struct* t, struct task_struct* 
 			TRACE_TASK(t, "%s: is NOT queued => Done.\n",
 				   __FUNCTION__);
 		}
-		raw_spin_unlock(&gsnfpca.release_lock);
+		raw_spin_unlock(&edfca.release_lock);
 
 		/* If holder was enqueued in a release heap, then the following
 		 * preemption check is pointless, but we can't easily detect
@@ -1381,19 +1379,19 @@ static void set_priority_inheritance(struct task_struct* t, struct task_struct* 
 			/* heap_decrease() hit the top level of the heap: make
 			 * sure preemption checks get the right task, not the
 			 * potentially stale cache. */
-			bheap_uncache_min(fp_ready_order,
-					 &gsnfpca.ready_queue);
+			bheap_uncache_min(edf_ready_order,
+					 &edfca.ready_queue);
 			check_for_preemptions();
 		}
 	}
 
-	raw_spin_unlock(&gsnfpca_lock);
+	raw_spin_unlock(&edfca_lock);
 }
 
 /* called with IRQs off */
 static void clear_priority_inheritance(struct task_struct* t)
 {
-	raw_spin_lock(&gsnfpca_lock);
+	raw_spin_lock(&edfca_lock);
 
 	/* A job only stops inheriting a priority when it releases a
 	 * resource. Thus we can make the following assumption.*/
@@ -1405,9 +1403,9 @@ static void clear_priority_inheritance(struct task_struct* t)
 	/* Check if rescheduling is necessary. We can't use heap_decrease()
 	 * since the priority was effectively lowered. */
 	unlink(t);
-	gsnfpca_job_arrival(t);
+	edfca_job_arrival(t);
 
-	raw_spin_unlock(&gsnfpca_lock);
+	raw_spin_unlock(&edfca_lock);
 }
 
 
@@ -1433,7 +1431,7 @@ static inline struct fmlp_semaphore* fmlp_from_lock(struct litmus_lock* lock)
 }
 
 /* caller is responsible for locking */
-struct task_struct* find_hp_waiter_fpca(struct fmlp_semaphore *sem,
+struct task_struct* find_hp_waiter_edfca(struct fmlp_semaphore *sem,
 				   struct task_struct* skip)
 {
 	struct list_head	*pos;
@@ -1444,13 +1442,13 @@ struct task_struct* find_hp_waiter_fpca(struct fmlp_semaphore *sem,
 							   task_list)->private;
 
 		/* Compare task prios, find high prio task. */
-		if (queued != skip && fp_higher_prio(queued, found))
+		if (queued != skip && edf_higher_prio(queued, found))
 			found = queued;
 	}
 	return found;
 }
 
-int gsnfpca_fmlp_lock(struct litmus_lock* l)
+int edfca_fmlp_lock(struct litmus_lock* l)
 {
 	struct task_struct* t = current;
 	struct fmlp_semaphore *sem = fmlp_from_lock(l);
@@ -1477,9 +1475,9 @@ int gsnfpca_fmlp_lock(struct litmus_lock* l)
 		__add_wait_queue_tail_exclusive(&sem->wait, &wait);
 
 		/* check if we need to activate priority inheritance */
-		if (fp_higher_prio(t, sem->hp_waiter)) {
+		if (edf_higher_prio(t, sem->hp_waiter)) {
 			sem->hp_waiter = t;
-			if (fp_higher_prio(t, sem->owner))
+			if (edf_higher_prio(t, sem->owner))
 				set_priority_inheritance(sem->owner, sem->hp_waiter);
 		}
 
@@ -1513,7 +1511,7 @@ int gsnfpca_fmlp_lock(struct litmus_lock* l)
 	return 0;
 }
 
-int gsnfpca_fmlp_unlock(struct litmus_lock* l)
+int edfca_fmlp_unlock(struct litmus_lock* l)
 {
 	struct task_struct *t = current, *next;
 	struct fmlp_semaphore *sem = fmlp_from_lock(l);
@@ -1543,7 +1541,7 @@ int gsnfpca_fmlp_unlock(struct litmus_lock* l)
 			 * inherit.  However, we need to make sure that the
 			 * next-highest priority in the queue is reflected in
 			 * hp_waiter. */
-			sem->hp_waiter = find_hp_waiter_fpca(sem, next);
+			sem->hp_waiter = find_hp_waiter_edfca(sem, next);
 			if (sem->hp_waiter)
 				TRACE_TASK(sem->hp_waiter, "is new highest-prio waiter\n");
 			else
@@ -1571,7 +1569,7 @@ out:
 	return err;
 }
 
-int gsnfpca_fmlp_close(struct litmus_lock* l)
+int edfca_fmlp_close(struct litmus_lock* l)
 {
 	struct task_struct *t = current;
 	struct fmlp_semaphore *sem = fmlp_from_lock(l);
@@ -1586,24 +1584,24 @@ int gsnfpca_fmlp_close(struct litmus_lock* l)
 	spin_unlock_irqrestore(&sem->wait.lock, flags);
 
 	if (owner)
-		gsnfpca_fmlp_unlock(l);
+		edfca_fmlp_unlock(l);
 
 	return 0;
 }
 
-void gsnfpca_fmlp_free(struct litmus_lock* lock)
+void edfca_fmlp_free(struct litmus_lock* lock)
 {
 	kfree(fmlp_from_lock(lock));
 }
 
-static struct litmus_lock_ops gsnfpca_fmlp_lock_ops = {
-	.close  = gsnfpca_fmlp_close,
-	.lock   = gsnfpca_fmlp_lock,
-	.unlock = gsnfpca_fmlp_unlock,
-	.deallocate = gsnfpca_fmlp_free,
+static struct litmus_lock_ops edfca_fmlp_lock_ops = {
+	.close  = edfca_fmlp_close,
+	.lock   = edfca_fmlp_lock,
+	.unlock = edfca_fmlp_unlock,
+	.deallocate = edfca_fmlp_free,
 };
 
-static struct litmus_lock* gsnfpca_new_fmlp(void)
+static struct litmus_lock* edfca_new_fmlp(void)
 {
 	struct fmlp_semaphore* sem;
 
@@ -1614,7 +1612,7 @@ static struct litmus_lock* gsnfpca_new_fmlp(void)
 	sem->owner   = NULL;
 	sem->hp_waiter = NULL;
 	init_waitqueue_head(&sem->wait);
-	sem->litmus_lock.ops = &gsnfpca_fmlp_lock_ops;
+	sem->litmus_lock.ops = &edfca_fmlp_lock_ops;
 
 	return &sem->litmus_lock;
 }
@@ -1622,7 +1620,7 @@ static struct litmus_lock* gsnfpca_new_fmlp(void)
 /* **** lock constructor **** */
 
 
-static long gsnfpca_allocate_lock(struct litmus_lock **lock, int type,
+static long edfca_allocate_lock(struct litmus_lock **lock, int type,
 				 void* __user unused)
 {
 	int err = -ENXIO;
@@ -1632,7 +1630,7 @@ static long gsnfpca_allocate_lock(struct litmus_lock **lock, int type,
 
 	case FMLP_SEM:
 		/* Flexible Multiprocessor Locking Protocol */
-		*lock = gsnfpca_new_fmlp();
+		*lock = edfca_new_fmlp();
 		if (*lock)
 			err = 0;
 		else
@@ -1646,14 +1644,14 @@ static long gsnfpca_allocate_lock(struct litmus_lock **lock, int type,
 
 #endif
 
-static struct domain_proc_info gsnfpca_domain_proc_info;
-static long gsnfpca_get_domain_proc_info(struct domain_proc_info **ret)
+static struct domain_proc_info edfca_domain_proc_info;
+static long edfca_get_domain_proc_info(struct domain_proc_info **ret)
 {
-	*ret = &gsnfpca_domain_proc_info;
+	*ret = &edfca_domain_proc_info;
 	return 0;
 }
 
-static void gsnfpca_setup_domain_proc(void)
+static void edfca_setup_domain_proc(void)
 {
 	int i, cpu;
 	int release_master =
@@ -1665,88 +1663,88 @@ static void gsnfpca_setup_domain_proc(void)
 	int num_rt_cpus = num_online_cpus() - (release_master != NO_CPU);
 	struct cd_mapping *map;
 
-	memset(&gsnfpca_domain_proc_info, sizeof(gsnfpca_domain_proc_info), 0);
-	init_domain_proc_info(&gsnfpca_domain_proc_info, num_rt_cpus, 1);
-	gsnfpca_domain_proc_info.num_cpus = num_rt_cpus;
-	gsnfpca_domain_proc_info.num_domains = 1;
+	memset(&edfca_domain_proc_info, sizeof(edfca_domain_proc_info), 0);
+	init_domain_proc_info(&edfca_domain_proc_info, num_rt_cpus, 1);
+	edfca_domain_proc_info.num_cpus = num_rt_cpus;
+	edfca_domain_proc_info.num_domains = 1;
 
-	gsnfpca_domain_proc_info.domain_to_cpus[0].id = 0;
+	edfca_domain_proc_info.domain_to_cpus[0].id = 0;
 	for (cpu = 0, i = 0; cpu < num_online_cpus(); ++cpu) {
 		if (cpu == release_master)
 			continue;
-		map = &gsnfpca_domain_proc_info.cpu_to_domains[i];
+		map = &edfca_domain_proc_info.cpu_to_domains[i];
 		map->id = cpu;
 		cpumask_set_cpu(0, map->mask);
 		++i;
 
 		/* add cpu to the domain */
 		cpumask_set_cpu(cpu,
-			gsnfpca_domain_proc_info.domain_to_cpus[0].mask);
+			edfca_domain_proc_info.domain_to_cpus[0].mask);
 	}
 }
 
-static long gsnfpca_activate_plugin(void)
+static long edfca_activate_plugin(void)
 {
 	int cpu;
 	cpu_entry_t *entry;
 
-	bheap_init(&gsnfpca_cpu_heap);
+	bheap_init(&edfca_cpu_heap);
 #ifdef CONFIG_RELEASE_MASTER
-	gsnfpca.release_master = atomic_read(&release_master_cpu);
+	edfca.release_master = atomic_read(&release_master_cpu);
 #endif
 
 	for_each_online_cpu(cpu) {
-		entry = &per_cpu(gsnfpca_cpu_entries, cpu);
+		entry = &per_cpu(edfca_cpu_entries, cpu);
 		bheap_node_init(&entry->hn, entry);
 		entry->linked    = NULL;
 		entry->scheduled = NULL;
 #ifdef CONFIG_RELEASE_MASTER
-		if (cpu != gsnfpca.release_master) {
+		if (cpu != edfca.release_master) {
 #endif
-			TRACE("GSN-FPCA: Initializing CPU #%d.\n", cpu);
+			TRACE("EDFCA: Initializing CPU #%d.\n", cpu);
 			update_cpu_position(entry);
 #ifdef CONFIG_RELEASE_MASTER
 		} else {
-			TRACE("GSN-FPCA: CPU %d is release master.\n", cpu);
+			TRACE("EDFCA: CPU %d is release master.\n", cpu);
 		}
 #endif
 	}
 
-	gsnfpca_setup_domain_proc();
-	gsnfpca.used_cache_partitions = 0;
-	TRACE("gsnfpca_activate_plugin used_cp_mask=0x%x\n",
-		  gsnfpca.used_cache_partitions);
+	edfca_setup_domain_proc();
+	edfca.used_cache_partitions = 0;
+	TRACE("edfca_activate_plugin used_cp_mask=0x%x\n",
+		  edfca.used_cache_partitions);
 
 	return 0;
 }
 
-static long gsnfpca_deactivate_plugin(void)
+static long edfca_deactivate_plugin(void)
 {
-	destroy_domain_proc_info(&gsnfpca_domain_proc_info);
+	destroy_domain_proc_info(&edfca_domain_proc_info);
 	return 0;
 }
 
 /*	Plugin object	*/
-static struct sched_plugin gsn_fpca_plugin __cacheline_aligned_in_smp = {
-	.plugin_name		= "GSN-FPCA2",
-	.finish_switch		= gsnfpca_finish_switch,
-	.task_new		= gsnfpca_task_new,
-	.complete_job		= gsnfpca_complete_job,
-	.task_exit		= gsnfpca_task_exit,
-	.schedule		= gsnfpca_schedule,
-	.task_wake_up		= gsnfpca_task_wake_up,
-	.task_block		= gsnfpca_task_block,
-	.admit_task		= gsnfpca_admit_task,
-	.activate_plugin	= gsnfpca_activate_plugin,
-	.deactivate_plugin	= gsnfpca_deactivate_plugin,
-	.get_domain_proc_info	= gsnfpca_get_domain_proc_info,
+static struct sched_plugin edfca_plugin __cacheline_aligned_in_smp = {
+	.plugin_name		= "GSN-EDFCA2",
+	.finish_switch		= edfca_finish_switch,
+	.task_new		=  edfca_task_new,
+	.complete_job		= edfca_complete_job,
+	.task_exit		= edfca_task_exit,
+	.schedule		= edfca_schedule,
+	.task_wake_up		= edfca_task_wake_up,
+	.task_block		= edfca_task_block,
+	.admit_task		= edfca_admit_task,
+	.activate_plugin	= edfca_activate_plugin,
+	.deactivate_plugin	= edfca_deactivate_plugin,
+	.get_domain_proc_info	=edfca_get_domain_proc_info,
 #ifdef CONFIG_LITMUS_LOCKING
-	.allocate_lock		= gsnfpca_allocate_lock,
+	.allocate_lock		= edfca_allocate_lock,
 #endif
 };
 
 
-static int __init init_gsn_fpca(void)
+static int __init init_edfca(void)
 {
 	int cpu;
 	cpu_entry_t *entry;
@@ -1755,35 +1753,35 @@ static int __init init_gsn_fpca(void)
 	INIT_LIST_HEAD(&tsk_rt(&standby_tasks)->standby_list);
 	memset(&standby_cpus, 0, sizeof(standby_cpus));
 
-	bheap_init(&gsnfpca_cpu_heap);
+	bheap_init(&edfca_cpu_heap);
 	/* initialize CPU state */
 	for (cpu = 0; cpu < NR_CPUS; cpu++)  {
-		entry = &per_cpu(gsnfpca_cpu_entries, cpu);
-		gsnfpca_cpus[cpu] = entry;
+		entry = &per_cpu(edfca_cpu_entries, cpu);
+		edfca_cpus[cpu] = entry;
 		entry->cpu 	 = cpu;
-		entry->hn        = &gsnfpca_heap_node[cpu];
+		entry->hn        = &edfca_heap_node[cpu];
 		bheap_node_init(&entry->hn, entry);
 		cache_entry = &per_cpu(cpu_cache_entries, cpu);
-		TRACE("[P%d] gsn_fpca: cpu:%d->%d used_cpu:%d->0\n",
+		TRACE("[P%d]edfca: cpu:%d->%d used_cpu:%d->0\n",
 			  cpu, cache_entry->cpu, cpu, cache_entry->used_cp);
 		cache_entry->cpu = cpu;
 		cache_entry->used_cp = 0;
 		/* init cache controller, not use any cache 
  		 * no need to grab lock now since only init once */
-		/*if(__lock_cache_ways_to_cpu(cpu, 0x0))
+		if(__lock_cache_ways_to_cpu(cpu, 0x0))
 		{
 			TRACE("P%d lock cache ways 0x0 fails\n", cpu);
 			printk("P%d lock cache ways 0x0 fails\n", cpu);
-		}*/
+		}
 	}
 	/* write back all cache */
 	l2x0_flush_cache_ways(0xffff);
-	fp_domain_init(&gsnfpca, NULL, gsnfpca_release_jobs);
-	gsnfpca.used_cache_partitions = 0;
-	memset(gsnfpca.l2_cps, 0, sizeof(gsnfpca.l2_cps));
-	TRACE("init_gsn_fpca: rt.used_cp_mask=0x%x\n", gsnfpca.used_cache_partitions);
-	return register_sched_plugin(&gsn_fpca_plugin);
+	edf_domain_init(&edfca, NULL, edfca_release_jobs);
+	edfca.used_cache_partitions = 0;
+	memset(edfca.l2_cps, 0, sizeof(edfca.l2_cps));
+	TRACE("edfca init : rt.used_cp_mask=0x%x\n", edfca.used_cache_partitions);
+	return register_sched_plugin(&edfca_plugin);
 }
 
 
-module_init(init_gsn_fpca);
+module_init(init_edfca);

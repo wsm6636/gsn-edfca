@@ -176,18 +176,19 @@ uint16_t rt_cp_min;
 uint16_t rt_cp_max;
 
 //extern void l2x0_flush_all(void);
-/*
+
 static void print_lockdown_registers(int cpu)
 {
 	int i;
 	for (i = 0; i < 4; i++) {
-		printk("P%d Lockdown Data CPU %2d: 0x%04x\n", cpu,
+		//printk("P%d Lockdown Data CPU %2d: 0x%04x\n", cpu, \
 				i, readl_relaxed(ld_d_reg(i)));
-		printk("P%d Lockdown Inst CPU %2d: 0x%04x\n", cpu,
-				i, readl_relaxed(ld_i_reg(i)));
+		printk("P%d Lockdown Data CPU %2d: 0x%04x\n", cpu,
+				i, readl_relaxed(cache_base + L2X0_LOCKDOWN_WAY_D_BASE + \
+			i * L2X0_LOCKDOWN_STRIDE));
 	}
 }
-
+/*
 static void test_lockdown(void *ignore)
 {
 	int i, cpu;
@@ -270,7 +271,10 @@ int __lock_cache_ways_to_cpu(int cpu, uint32_t ways_mask)
 	}
 */
 	//way_partitions[cpu*2] = ways_mask;
-	writel_relaxed(~ways_mask, ld_d_reg(cpu));
+	//writel_relaxed(~ways_mask, ld_d_reg(cpu));
+	writel_relaxed(~ways_mask, cache_base + L2X0_LOCKDOWN_WAY_I_BASE + \
+			cpu * L2X0_LOCKDOWN_STRIDE); 
+	print_lockdown_registers(cpu);
 	//writel_relaxed(~way_partitions[cpu*2], ld_d_reg(cpu));
 	//writel_relaxed(~way_partitions[cpu*2], ld_i_reg(cpu));
 	printk("__lock_cache_ways_to_cpu\n");
@@ -294,8 +298,13 @@ int lock_cache_ways_to_cpu(int cpu, uint32_t ways_mask)
 
 int __unlock_cache_ways_to_cpu(int cpu)
 {
+	int ret=0;
 	printk("__unlock_cache_ways_to_cpu\n");
-	return __lock_cache_ways_to_cpu(cpu, 0x0);
+	print_lockdown_registers(cpu);
+	//return __lock_cache_ways_to_cpu(cpu, 0x0);
+	writel_relaxed(0x0, cache_base + L2X0_LOCKDOWN_WAY_I_BASE + \
+			cpu * L2X0_LOCKDOWN_STRIDE); 
+	return ret;
 }
 
 int unlock_cache_ways_to_cpu(int cpu)

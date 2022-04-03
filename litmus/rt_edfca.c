@@ -45,6 +45,7 @@ static inline int check_edfca_status_invariant(int cpu, uint32_t cp_mask)
 	return 1;
 }
 */
+/*
 void edfca_flush_cache_partitions(int cpu, uint16_t cp_mask)
 {
 	if(cp_mask != 0){
@@ -52,7 +53,8 @@ void edfca_flush_cache_partitions(int cpu, uint16_t cp_mask)
 		TRACE("edfca flush cache partitions 0x%x on cpu %d\n", cp_mask,cpu);
 	}else
 			TRACE("[BUG] lock cache partition 0 on cpu %d\n", cpu);
-}
+}*/
+
 /* lock_edfca_partitions
  * lock cp_mask for cpu so that only cpu can use cp_mask
  * NOTE:
@@ -63,7 +65,7 @@ void edfca_flush_cache_partitions(int cpu, uint16_t cp_mask)
  *
  * tsk: lock bandwidth partition for task tsk
  */
-void lock_edfca_partitions(int cpu, uint32_t cp_mask, struct task_struct *tsk, rt_domain_t *rt)
+void lock_edfca_partitions(int cpu, uint16_t cp_mask, struct task_struct *tsk, rt_domain_t *rt)
 {
 	cpu_edfca_entry_t *edfca_entry;
     int ret = 0, i;
@@ -74,6 +76,8 @@ void lock_edfca_partitions(int cpu, uint32_t cp_mask, struct task_struct *tsk, r
 		TRACE("[BUG] try to lock 0x%x on NO_CPU\n", cp_mask);
 	} else
 	{
+		//ret=__lock_cache_ways_to_cpu(cpu,cp_mask);
+		//TRACE("lock_edfca_partitions __lock_cache_ways_to_cpu 0x%x on %d \n", cp_mask,cpu);
 		edfca_entry = &per_cpu(cpu_edfca_entries, cpu);
 		if (edfca_entry->used_cp != 0)
 		{
@@ -82,28 +86,34 @@ void lock_edfca_partitions(int cpu, uint32_t cp_mask, struct task_struct *tsk, r
 		}
 
 			edfca_entry->used_cp = cp_mask;
-			//cp_mask_to_flush = cp_mask;
 			for (i = 0; i < MAX_CACHE_PARTITIONS; i++)
 			{
-				if (edfca_entry->used_cp & (1<<i) & MAX_CACHE_PARTITIONS)
+				if (cp_mask & (1 << i))
 				{
-					//if (rt->l2_cps[i] != tsk->pid)
-					//{
-					//	cp_mask_to_flush |= (1 << i);
+					if (rt->l2_cps[i] != tsk->pid)
+					{
+						cp_mask_to_flush |= (1 << i);
 						rt->l2_cps[i] = tsk->pid;
+						
 					}
 				
 				}
+
 			}
 			rt->used_cache_partitions |= cp_mask;
-		//ret=__lock_cache_ways_to_cpu(cpu,cp_mask_to_flush);
-		//ret=lock_cache_ways_to_cpu(cpu,cp_mask_to_flush);
+		
+		//ret=lock_cache_ways_to_cpu(cpu,cp_mask);
 		if (ret)
 			{
- 				TRACE("[BUG][P%d] PL310 lock cache 0x%d fails\n",
+ 				TRACE("[BUG][P%d] PL310 lock cache 0x%x fails\n",
  					cpu, cp_mask_to_flush);
  			}
-			//edfca_flush_cache_partitions(cpu,cp_mask_to_flush);
+			if(cp_mask_to_flush != 0){
+			TRACE("lock_edfca_partitions cp_mask_to_flush= 0x%x \n", cp_mask_to_flush);
+			l2x0_flush_cache_ways(cp_mask_to_flush);
+			TRACE("edfca flush cache partitions 0x%x on cpu %d\n", cp_mask_to_flush,cpu);
+			}else
+				TRACE("[BUG] lock cache partition 0 on cpu %d\n", cpu);
 		
 	}
 	return;
@@ -112,7 +122,7 @@ void lock_edfca_partitions(int cpu, uint32_t cp_mask, struct task_struct *tsk, r
 /* unlock_edfca_partitions
  * unlock cp_mask for cpu so that other cpus can use cp_mask
  */
-void unlock_edfca_partitions(int cpu, uint32_t cp_mask, rt_domain_t *rt)
+void unlock_edfca_partitions(int cpu, uint16_t cp_mask, rt_domain_t *rt)
 {
 	cpu_edfca_entry_t *edfca_entry;
     int ret, i;
@@ -131,13 +141,14 @@ void unlock_edfca_partitions(int cpu, uint32_t cp_mask, rt_domain_t *rt)
 	//	ret = check_edfca_status_invariant(cpu, cp_mask);
 		for (i = 0; i < MAX_CACHE_PARTITIONS; i++)
 		{
-			if (edfca_entry->used_cp & (1<<i) & MAX_CACHE_PARTITIONS)
+			if  (cache_entry->used_cp & (1<<i) )
 			{
 				rt->l2_cps[i] = 0;
 			}
 		}
 		edfca_entry->used_cp = 0;
-		rt->used_cache_partitions &= (CACHE_PARTITIONS_MASK & ~cp_mask);
+		rt->used_cache_partitions &= (CACHE_PARTITIONS_MASK & (~cp_mask));
+		TRACE("unlock_edfca_partitions \n");
 		//__unlock_cache_ways_to_cpu(cpu);
 		//unlock_cache_ways_to_cpu(cpu);
 	}
@@ -145,7 +156,7 @@ void unlock_edfca_partitions(int cpu, uint32_t cp_mask, rt_domain_t *rt)
 	return;
 }
 
-int edfca_count_set_bits(uint32_t bitmask)
+int edfca_count_set_bits(uint16_t bitmask)
 {
 	int i = 0;
 	int num_bits = 0;

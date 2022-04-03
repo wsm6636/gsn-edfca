@@ -308,7 +308,7 @@ static int check_for_edfca_preemptions(cpu_entry_t *entry, struct task_struct *t
 	int num_used_cp = 0;
 	int num_cp_to_use = 0;
 	int cp_ok = 0, i, cpu = 0;
-	uint32_t cp_mask_to_use = 0;
+	uint16_t cp_mask_to_use = 0;
 	rt_domain_t *rt = &gsnedfca;
 	struct list_head *iter, *tmp;
 
@@ -483,7 +483,7 @@ static int check_for_edfca_preemptions(cpu_entry_t *entry, struct task_struct *t
 
 		lock_edfca_partitions(entry->cpu, tsk_rt(task)->job_params.cache_partitions, task, &gsnedfca);
 		tsk_rt(task)->job_params.num_using_cache_partitions = num_cp_to_use;
-
+		
 		TRACE("release gsnedfca_edfca_lock\n");
 		raw_spin_unlock(&gsnedfca_edfca_lock);
 	}
@@ -511,13 +511,14 @@ static void check_for_preemptions(void)
 	    && likely(local->cpu != gsnedfca.release_master)
 #endif
 		) {
-		TRACE_TASK(task, "linking to local CPU %d to avoid IPI\n", local->cpu);
+		
 
 		ret = check_for_edfca_preemptions(local, task);
 
 		if (ret != 0)
 		{
 			task = __take_ready(&gsnedfca);
+			TRACE_TASK(task, "linking to local CPU %d to avoid IPI\n", local->cpu);
 			link_task_to_cpu(task, local);
 			preempt(local);
 		}
@@ -531,8 +532,6 @@ static void check_for_preemptions(void)
 		task = __peek_ready(&gsnedfca);
 		if (!task)
 			break;
-		TRACE("check_for_preemptions: attempting to link task %d to P%d\n",
-		      task->pid, last->cpu);
 
 #ifdef CONFIG_SCHED_CPU_AFFINITY
 		{
@@ -549,6 +548,8 @@ static void check_for_preemptions(void)
 		if (ret != 0)
 		{
 			task = __take_ready(&gsnedfca);
+			TRACE("check_for_preemptions: attempting to link task %d to P%d\n",
+		      task->pid, last->cpu);
 			link_task_to_cpu(task, last);
 			preempt(last);
 		} else
